@@ -1,0 +1,8 @@
+apiVersion: v2
+name: istio-gateway
+description: Shared Gateway for *.goormgb.space
+type: application
+version: 1.0.0
+appVersion: "1.29.1"
+# istio-ingressgateway는 istioctl로 설치됨
+# 이 차트는 Gateway 리소스(CRD)만 생성

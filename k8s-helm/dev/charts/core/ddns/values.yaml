@@ -1,0 +1,31 @@
+# DDNS Cloudflare updater
+# Updates DNS A records via Cloudflare API
+
+# 필수 - 환경별로 설정
+domain: ""
+zoneID: ""
+records: []
+
+# DNS record TTL (seconds)
+ttl: 60
+
+# CronJob schedule: every 5 minutes
+schedule: "*/5 * * * *"
+
+# Cloudflare API credentials (from AWS Secrets Manager via ESO)
+secret:
+  name: cloudflare-ddns-credentials
+  awsSecretKey: dev/infra/cloudflare
+
+# Use lightweight image with curl
+image:
+  repository: curlimages/curl
+  tag: "8.5.0"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi

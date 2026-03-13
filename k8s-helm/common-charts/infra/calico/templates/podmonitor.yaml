@@ -1,0 +1,40 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: calico-felix
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: calico
+    app.kubernetes.io/component: felix
+    release: {{ .Release.Name }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - calico-system
+  selector:
+    matchLabels:
+      k8s-app: calico-node
+  podMetricsEndpoints:
+    - interval: {{ .Values.metrics.interval | default "30s" }}
+      # targetPort 없이 relabeling으로만 주소 설정
+      # (targetPort 사용 시 Prometheus Operator가 컨테이너 포트 체크하여 drop함)
+      relabelings:
+        # Pod IP + Felix 메트릭 포트로 직접 scrape 주소 설정
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_ip]
+          regex: (.+)
+          replacement: $1:{{ .Values.metrics.port }}
+          targetLabel: __address__
+        {{- if .Values.metrics.relabeling }}
+        # Pod 이름과 IP를 결합하여 가독성 있는 인스턴스명 생성
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_node_name, __meta_kubernetes_pod_ip]
+          separator: " ("
+          replacement: "$1$2:{{ .Values.metrics.port }})"
+          targetLabel: instance
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        {{- end }}
+{{- end }}

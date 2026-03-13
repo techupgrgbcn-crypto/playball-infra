@@ -1,0 +1,32 @@
+{{- if and .Values.exporter.enabled .Values.exporter.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-redis
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  endpoints:
+    - port: http-metrics
+      interval: {{ .Values.exporter.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.exporter.serviceMonitor.scrapeTimeout }}
+      path: /metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: kubernetes_namespace
+        - targetLabel: release
+          replacement: {{ .Release.Name }}
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        # instance를 "redis명 (IP:port)" 형식으로 변경
+        - sourceLabels: [__meta_kubernetes_pod_name, __address__]
+          separator: " ("
+          replacement: "$1$2)"
+          targetLabel: instance
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}

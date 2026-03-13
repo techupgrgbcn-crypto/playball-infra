@@ -1,0 +1,47 @@
+# ArgoCD configuration
+# ArgoCD 자체는 bootstrap repo의 scripts/argocd/install.sh 로 설치
+
+# Istio Gateway 설정 - 환경별로 설정
+gateway:
+  host: ""
+  tls:
+    enabled: true
+    credentialName: ""
+
+# Google OAuth 설정
+oidc:
+  enabled: false
+  name: Google
+  issuer: https://accounts.google.com
+  secretManagerKey: ""  # 환경별로 설정 (예: dev/argocd/google-oauth)
+  requestedScopes:
+    - openid
+    - profile
+    - email
+
+# RBAC 설정
+rbac:
+  # ESO 사용 시 아래 설정
+  eso:
+    enabled: false
+    secretManagerKey: ""  # 예: common/google-login/argocd
+  # 직접 설정 시 (ESO 미사용)
+  policy: ""
+  defaultPolicy: ""
+
+# ArgoCD Application 정의 (예시)
+applications: []
+
+# Prometheus ServiceMonitor
+metrics:
+  enabled: false
+
+# ArgoCD Notifications 설정
+notifications:
+  enabled: false
+  discord:
+    # ESO에서 webhook URL 가져오기
+    eso:
+      enabled: false
+      secretManagerKey: ""  # 예: dev/argocd/discord-webhook
+      # JSON keys: discord-webhook-url (앱용), discord-webhook-infra-url (인프라용)

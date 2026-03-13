@@ -1,0 +1,40 @@
+# kubeadm-dev - RedisInsight 설정
+# Domain: redisinsight.goormgb.space
+
+replicaCount: 1
+
+image:
+  repository: redis/redisinsight
+  tag: "2.68"
+  pullPolicy: IfNotPresent
+
+# CP 노드에 배치
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+persistence:
+  enabled: true
+  size: 1Gi
+
+# Istio VirtualService
+virtualService:
+  enabled: true
+  host: "redisinsight.goormgb.space"
+  gateway: "istio-system/goormgb-gateway"
+
+# Redis connection info (RedisInsight UI에서 직접 연결 설정)
+# redis-cache: redis-cache.data.svc.cluster.local:6379
+# redis-queue: redis-queue.data.svc.cluster.local:6379

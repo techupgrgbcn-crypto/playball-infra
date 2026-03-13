@@ -1,0 +1,90 @@
+{{- if and .Values.enabled .Values.jwtAuth.enabled }}
+# ============================================================
+# AuthorizationPolicy - JWT 접근 제어
+# ============================================================
+# 전략: "기본 허용 + 보호 경로만 JWT 필수"
+# → 괜히 401 나는 일 없도록 안전하게!
+# ============================================================
+
+---
+# ===========================================
+# 1. 공개 경로 - 무조건 허용 (JWT 불필요)
+# ===========================================
+# 이 정책이 먼저 매칭되면 JWT 체크 안 함
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: jwt-allow-public-paths
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: jwt-auth
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  action: ALLOW
+  rules:
+    # 공개 경로들 - JWT 없어도 OK!
+    {{- range .Values.jwtAuth.publicPaths }}
+    - to:
+        - operation:
+            paths:
+              - "{{ . }}"
+    {{- end }}
+
+---
+# ===========================================
+# 2. 보호된 경로 - JWT 필수
+# ===========================================
+# JWT 없거나 잘못된 토큰이면 거부
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: jwt-require-auth
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: jwt-auth
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  action: DENY
+  rules:
+    # 보호된 경로에 JWT 없으면 거부
+    {{- range .Values.jwtAuth.protectedPaths }}
+    - to:
+        - operation:
+            paths:
+              - "{{ . }}"
+      # JWT 없는 요청 (requestPrincipal이 없음)
+      when:
+        - key: request.auth.principal
+          notValues:
+            - "*"
+    {{- end }}
+
+---
+# ===========================================
+# 3. 기본 정책 - 나머지는 허용
+# ===========================================
+# 위 정책에 매칭 안 된 요청은 모두 허용
+# (Gateway에서 추가 검증 가능)
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: jwt-allow-rest
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: jwt-auth
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  action: ALLOW
+  rules:
+    # 모든 요청 허용 (위 정책들이 먼저 평가됨)
+    - {}
+{{- end }}

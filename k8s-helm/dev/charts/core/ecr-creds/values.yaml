@@ -1,0 +1,19 @@
+# ECR Credential Refresh Configuration
+
+aws:
+  region: ap-northeast-2
+
+# Namespaces where ECR pull secret will be created
+targetNamespaces:
+  - dev-webs
+  - dev-ai
+
+# CronJob schedule (every 10 hours)
+schedule: "0 */10 * * *"
+
+# Secret name for ECR credentials
+secretName: ecr-pull-secret
+
+# AWS credentials secret (created by bootstrap-aws.sh in infra namespace)
+awsCredentialsSecret:
+  name: ecr-aws-credentials

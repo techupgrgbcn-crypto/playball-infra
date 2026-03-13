@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: argocd-vs
+spec:
+  hosts:
+    - {{ .Values.gateway.host | quote }}
+  gateways:
+    - istio-system/goormgb-gateway
+  http:
+    - retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,503,reset
+      route:
+        - destination:
+            host: argocd-server.argocd.svc.cluster.local
+            port:
+              number: 80

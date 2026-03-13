@@ -1,0 +1,515 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Calico CNI Felix 에이전트 모니터링 대시보드입니다. Felix 상태, 네트워크 정책, iptables 규칙, 데이터플레인 동기화를 확인합니다.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "Felix 에이전트 현황",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Felix 활성 노드 수\n\n**이 지표가 뭐예요?**\nFelix가 활성 상태인 노드 수입니다.\n\n**Felix란?**\nCalico의 핵심 에이전트로, 각 노드에 DaemonSet으로 배포됩니다.\n\n**역할:**\n- 네트워크 정책을 iptables 규칙으로 변환\n- 워크로드 IP 관리\n- VXLAN/IPIP 터널 관리\n- BGP 라우팅 (선택적)\n\n**정상 상태:**\n모든 노드에서 실행 중이어야 함\n\n**확인 명령어:**\n```bash\nkubectl get pods -n calico-system -l k8s-app=calico-node\nkubectl logs -n calico-system -l k8s-app=calico-node -c calico-node\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "count(count by (instance) (felix_active_local_endpoints))",
+          "legendFormat": "활성 노드",
+          "refId": "A"
+        }
+      ],
+      "title": "Felix 활성 노드",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 로컬 엔드포인트 수\n\n**이 지표가 뭐예요?**\n전체 Felix 인스턴스가 관리하는 엔드포인트(Pod) 수입니다.\n\n**엔드포인트란?**\nCalico가 관리하는 네트워크 연결점입니다.\n- 보통 Pod 하나당\n- 컨테이너 인터페이스 1개\n\n**확인 명령어:**\n```bash\n# Calico 엔드포인트 목록\ncalicoctl get workloadendpoints -A\n\n# 특정 엔드포인트 상세\ncalicoctl get workloadendpoint -n <namespace> --workload <pod>\n```\n\n**활용:**\n클러스터 워크로드 규모 파악",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance) (felix_active_local_endpoints))",
+          "legendFormat": "엔드포인트",
+          "refId": "A"
+        }
+      ],
+      "title": "전체 엔드포인트",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 활성 네트워크 정책 수\n\n**이 지표가 뭐예요?**\n현재 적용 중인 Calico/K8s 네트워크 정책 수입니다.\n\n**왜 중요한가요?**\n네트워크 보안의 핵심 지표입니다.\n\n**정책 유형:**\n- **K8s NetworkPolicy** - 표준 K8s 정책\n- **Calico NetworkPolicy** - 네임스페이스 범위 확장 정책\n- **Calico GlobalNetworkPolicy** - 클러스터 전역 정책\n\n**확인 명령어:**\n```bash\n# K8s 네트워크 정책\nkubectl get networkpolicy -A\n\n# Calico 정책\ncalicoctl get networkpolicy -A\ncalicoctl get globalnetworkpolicy\n```\n\n**권장 사항:**\n- 정책 수 0 = 보안 미적용 (위험)\n- 기본 거부 정책 = 권장 보안",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance) (felix_active_local_policies))",
+          "legendFormat": "정책",
+          "refId": "A"
+        }
+      ],
+      "title": "활성 정책 수",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## iptables 규칙 수\n\n**이 지표가 뭐예요?**\nFelix가 생성한 iptables 규칙 총 수입니다.\n\n**iptables란?**\n리눅스 커널 방화벽 시스템입니다.\nCalico는 네트워크 정책을 iptables 규칙으로 변환합니다.\n\n**확인 명령어:**\n```bash\n# 노드에서 Calico iptables 규칙 확인\nsudo iptables -L -n | grep cali\nsudo iptables -L -n -t nat | grep cali\n\n# 규칙 수 카운트\nsudo iptables -L -n | wc -l\n```\n\n**규칙이 많으면?**\n- 정책이 많음 = 정상\n- 성능에 영향 미칠 수 있음 (규칙 순회 비용)\n- eBPF 모드로 전환 고려",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance, table) (felix_iptables_rules))",
+          "legendFormat": "규칙",
+          "refId": "A"
+        }
+      ],
+      "title": "iptables 규칙 수",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## iptables 저장 오류\n\n**이 지표가 뭐예요?**\niptables 규칙 저장(save) 시 발생한 오류 수입니다.\n\n**왜 중요한가요?**\n저장 오류는 방화벽 규칙 불일치를 유발할 수 있습니다.\n\n**오류 원인:**\n- iptables 프로세스 경합 (다른 도구와 충돌)\n- 커널 모듈 문제\n- 권한 부족\n\n**디버깅:**\n```bash\n# Felix 로그 확인\nkubectl logs -n calico-system -l k8s-app=calico-node -c calico-node | grep -i error\n\n# iptables 상태 확인\nsudo iptables -L -n\n```\n\n**정상 상태:**\n0개가 정상입니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance) (felix_iptables_save_errors_total)) or vector(0)",
+          "legendFormat": "오류",
+          "refId": "A"
+        }
+      ],
+      "title": "iptables 저장 오류",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## iptables 복원 오류\n\n**이 지표가 뭐예요?**\niptables 규칙 복원(restore) 시 발생한 오류 수입니다.\n\n**restore란?**\nFelix가 계산한 규칙을 커널에 적용하는 과정입니다.\n오류 발생 시 네트워크 정책이 적용되지 않습니다.\n\n**오류 원인:**\n- 커널 버전 호환성\n- 리소스 부족\n- iptables 잠금 경합\n\n**테스트:**\n```bash\n# iptables-restore 수동 테스트\nsudo iptables-save > /tmp/rules.txt\nsudo iptables-restore < /tmp/rules.txt\n```\n\n**정상 상태:**\n0개가 정상",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance) (felix_iptables_restore_errors_total)) or vector(0)",
+          "legendFormat": "오류",
+          "refId": "A"
+        }
+      ],
+      "title": "iptables 복원 오류",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "데이터플레인 동기화",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 데이터플레인 적용 시간\n\n**이 지표가 뭐예요?**\nFelix가 정책 변경을 iptables 규칙에 적용하는 시간입니다.\n\n**동작 방식:**\n네트워크 정책이 변경되면 이를 감지합니다.\n- 감지: 이벤트 수신\n- 적용: 규칙 계산 후 적용 (iptables)\n\n**동기화 과정:**\n1. etcd/API 서버에서 변경 감지\n2. Felix가 정책 계산\n3. iptables 규칙 생성\n4. iptables-restore로 적용\n\n**권장 수준:**\n- P50: < 10ms\n- P99: < 100ms\n\n**느리다면?**\n- 정책/엔드포인트 수 최적화\n- 노드 리소스 확인\n- eBPF 모드 전환 고려",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2,
+            "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "red", "value": 0.1 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg(max by (instance) (felix_int_dataplane_apply_time_seconds{quantile=\"0.5\"}))", "legendFormat": "P50", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg(max by (instance) (felix_int_dataplane_apply_time_seconds{quantile=\"0.9\"}))", "legendFormat": "P90", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg(max by (instance) (felix_int_dataplane_apply_time_seconds{quantile=\"0.99\"}))", "legendFormat": "P99", "refId": "C" }
+      ],
+      "title": "데이터플레인 적용 시간",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Felix 재동기화 (Resync)\n\n**이 지표가 뭐예요?**\nFelix가 전체 상태를 재동기화한 횟수입니다.\n\n**재동기화란?**\nFelix가 etcd/API 서버와 연결이 끊어졌다가 복구 시\n전체 정책을 다시 동기화하는 과정입니다.\n\n**발생 원인:**\n- Felix 재시작\n- etcd/API 서버 연결 끊김\n- 네트워크 일시 장애\n- 리더 선출 변경\n\n**영향:**\n재동기화 중에는 일시적으로\n정책 적용이 지연될 수 있습니다.\n\n**패턴 분석:**\n- 간헐적 발생: 정상\n- 빈번한 발생: etcd/API 서버 문제 조사 필요",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "bars", "fillOpacity": 50, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1,
+            "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 11,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "max by (instance) (increase(felix_resyncs_started[5m]))",
+          "legendFormat": "{{ instance }}",
+          "refId": "A"
+        }
+      ],
+      "title": "Felix 재동기화",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "panels": [],
+      "title": "리소스 추이",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 노드별 엔드포인트 수\n\n**이 지표가 뭐예요?**\n각 노드의 Felix 인스턴스가 관리하는 엔드포인트 수입니다.\n\n**활용법:**\n- 노드별 워크로드 분산 확인\n- 스케줄링 불균형 감지\n- 용량 계획 수립\n\n**불균형 영향:**\n특정 노드에 집중되면:\n- 해당 노드의 iptables 규칙 증가\n- 데이터플레인 적용 시간 증가\n- 노드 리소스 부하 증가\n\n**확인 명령어:**\n```bash\n# 노드별 Pod 분포\nkubectl get pods -A -o wide | awk '{print $8}' | sort | uniq -c\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2,
+            "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "id": 20,
+      "options": {
+        "legend": { "calcs": ["mean", "last"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "max by (instance) (felix_active_local_endpoints)",
+          "legendFormat": "{{ instance }}",
+          "refId": "A"
+        }
+      ],
+      "title": "노드별 엔드포인트 수",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 노드별 iptables 규칙 수\n\n**이 지표가 뭐예요?**\n각 노드의 Felix 인스턴스가 관리하는 iptables 규칙 수입니다.\n\n**규칙 수 증가 요인:**\n- 네트워크 정책 증가\n- 엔드포인트 증가/삭제\n- 서비스 노출 증가\n\n**성능 영향:**\n- 규칙 많음: 패킷 처리 지연\n- 규칙 적음: 빠른 처리\n- 균등 분포: 클러스터 전체 안정\n\n**최적화 방법:**\n1. 불필요한 정책 정리\n2. 정책 범위 최적화\n3. eBPF 모드 사용 (권장)\n\n**eBPF vs iptables:**\n- eBPF: O(1) 복잡도, 빠른 처리\n- iptables: O(n) 복잡도, 규칙 순회 필요",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2,
+            "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "id": 21,
+      "options": {
+        "legend": { "calcs": ["mean", "last"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum by (instance) (max by (instance, table) (felix_iptables_rules{ip_version=\"4\"}))",
+          "legendFormat": "{{ instance }}",
+          "refId": "A"
+        }
+      ],
+      "title": "노드별 iptables 규칙 수",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 103,
+      "panels": [],
+      "title": "IP 관리 & IPAM",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## IP Set 수\n\n**이 지표가 뭐예요?**\nCalico Felix가 관리하는 IP Set 수입니다.\n\n**IP Set이란?**\niptables에서 IP 그룹을 효율적으로 관리하는 방식입니다.\n네트워크 정책의 IP 셀렉터를 IP Set으로 변환합니다.\n\n**확인 명령어:**\n```bash\n# IP Set 목록\nsudo ipset list | grep cali\n\n# Calico IP 풀\ncalicoctl get ippool -o wide\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 30, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2,
+            "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 30,
+      "options": {
+        "legend": { "calcs": ["mean", "last"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance, ip_version) (felix_ipsets_calico)) by (ip_version)",
+          "legendFormat": "{{ ip_version }}",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance) (felix_ipsets_total))",
+          "legendFormat": "Total",
+          "refId": "B"
+        }
+      ],
+      "title": "IP Set 수",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Felix 로그 오류\n\n**이 지표가 뭐예요?**\nFelix에서 발생한 로그 관련 오류입니다.\n\n**지표 설명:**\n- **Logs Dropped**: 버퍼 초과로 드롭된 로그\n- **Log Errors**: 로그 기록 시 발생한 오류\n\n**확인 명령어:**\n```bash\n# 에러 로그 확인\nkubectl logs -n calico-system -l k8s-app=calico-node -c calico-node | grep -i error\n\n# 최근 로그\nkubectl logs -n calico-system -l k8s-app=calico-node -c calico-node --tail=100\n```\n\n**정상 상태:**\n0개가 정상입니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "bars", "fillOpacity": 50, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1,
+            "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Log Errors" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Logs Dropped" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 31,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance) (increase(felix_logs_dropped[5m])))",
+          "legendFormat": "Logs Dropped",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(max by (instance) (increase(felix_log_errors[5m])))",
+          "legendFormat": "Log Errors",
+          "refId": "B"
+        }
+      ],
+      "title": "Felix 로그 오류",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["calico", "felix", "cni", "network"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0, "includeAll": false, "label": "데이터소스", "multi": false,
+        "name": "datasource", "options": [], "query": "prometheus", "refresh": 1,
+        "regex": "", "skipUrlSync": false, "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Calico Felix 모니터링",
+  "uid": "calico-felix-kr",
+  "version": 1
+}

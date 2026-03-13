@@ -1,0 +1,15 @@
+# kubeadm-dev 클러스터 데이터 서비스 설정
+# PostgreSQL, Redis → CP 노드 (control-plane-1)에 스케줄링
+
+# S3 백업 활성화 (dev/infra/s3-backup secret 생성 완료)
+backup:
+  enabled: true
+
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+

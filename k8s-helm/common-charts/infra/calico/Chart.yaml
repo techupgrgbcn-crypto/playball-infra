@@ -1,0 +1,7 @@
+apiVersion: v2
+name: calico-config
+description: Calico additional configuration (FelixConfiguration, PodMonitor)
+type: application
+version: 1.0.0
+appVersion: "3.29.3"
+# OCI dependency removed - using direct OCI reference in ArgoCD

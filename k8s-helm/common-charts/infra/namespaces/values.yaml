@@ -1,0 +1,4 @@
+# Default values for namespaces
+namespaces:
+  - name: dev
+    istio: true

@@ -1,0 +1,182 @@
+{
+  "annotations": { "list": [] },
+  "description": "노드(서버) 리소스 모니터링 대시보드입니다. CPU, 메모리, 디스크, 네트워크 상태를 상세히 확인합니다.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 100, "panels": [], "title": "시스템 개요 (System Overview)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 가동 시간\n\n**이 지표가 뭐예요?**\n서버가 재부팅 없이 실행된 시간입니다.\n\n**왜 중요한가요?**\n- 서버 안정성 지표\n- 재시작 이력 추적\n- 커널 업데이트 적용 시점 파악\n\n**확인 명령어:**\n```bash\nuptime\ncat /proc/uptime\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "yellow", "value": null }, { "color": "green", "value": 86400 }] }, "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 }, "id": 1,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "time() - node_boot_time_seconds{instance=~\"$instance\"}", "legendFormat": "가동시간", "refId": "A" }],
+      "title": "가동 시간", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## CPU 코어 수\n\n**이 지표가 뭐예요?**\n시스템의 논리 CPU 코어 수입니다.\n\n**물리 vs 논리 코어:**\n- Hyper-Threading 시 물리 × 2\n- 예: 4코어 8스레드 → 8개\n\n**K8s 관련:**\n- 1 CPU = 1000m (millicores)\n- 4 코어 = 4000m 할당 가능\n\n**확인 명령어:**\n```bash\nnproc\nlscpu | grep 'CPU(s)'\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 }, "id": 2,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(node_cpu_seconds_total{instance=~\"$instance\", mode=\"idle\"})", "legendFormat": "코어", "refId": "A" }],
+      "title": "CPU 코어", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 전체 메모리\n\n**이 지표가 뭐예요?**\n서버에 설치된 총 RAM 용량입니다.\n\n**메모리 유형:**\n- **Physical Memory** - 실제 RAM\n- **Virtual Memory** - RAM + Swap\n- **Swap** - 디스크를 RAM처럼 사용 (느림)\n\n**확인 명령어:**\n```bash\nfree -h\ncat /proc/meminfo | grep MemTotal\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 }, "id": 3,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_memory_MemTotal_bytes{instance=~\"$instance\"}", "legendFormat": "전체", "refId": "A" }],
+      "title": "전체 메모리", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 루트 디스크 용량\n\n**이 지표가 뭐예요?**\n루트(/) 파티션의 전체 크기입니다.\n\n**K8s 디스크 사용처:**\n- `/var/lib/containerd` - 컨테이너 이미지\n- `/var/lib/kubelet` - 로컬 볼륨\n- `/var/log` - 컨테이너 로그\n\n**확인 명령어:**\n```bash\ndf -h /\nlsblk\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 }, "id": 4,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_filesystem_size_bytes{instance=~\"$instance\", mountpoint=\"/\", fstype!=\"rootfs\"}", "legendFormat": "크기", "refId": "A" }],
+      "title": "디스크 용량", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Load Average (1분)\n\n**이 지표가 뭐예요?**\n시스템 부하 평균입니다. CPU 대기 큐 길이를 나타냅니다.\n\n**해석법:**\n- Load / CPU 코어 수 = 사용률\n- 예: 4코어에서 Load 4.0 = 100% 활용\n- Load > 코어 수 = 과부하 (대기 발생)\n\n**권장 수준:**\n- < 코어 수: 정상\n- = 코어 수: 포화\n- > 코어 수 × 2: 심각\n\n**확인 명령어:**\n```bash\nuptime\ncat /proc/loadavg\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 2 }, { "color": "red", "value": 4 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 }, "id": 5,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_load1{instance=~\"$instance\"}", "legendFormat": "로드 1분", "refId": "A" }],
+      "title": "Load Average (1m)", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 네트워크 수신 속도\n\n**이 지표가 뭐예요?**\n들어오는 트래픽 속도입니다.\n\n**단위:**\n- bps (bits per second)\n- 1 Gbps = 125 MB/s\n\n**확인 명령어:**\n```bash\nifconfig\nip -s link\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bps" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 }, "id": 6,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(node_network_receive_bytes_total{instance=~\"$instance\", device!~\"lo|veth.*|cali.*|tunl.*\"}[5m])) * 8", "legendFormat": "RX", "refId": "A" }],
+      "title": "네트워크 RX", "type": "stat"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 101, "panels": [], "title": "CPU 상세 (CPU Details)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## CPU 사용률 (모드별)\n\n**이 지표가 뭐예요?**\nCPU가 각 모드에서 사용된 비율입니다.\n\n**CPU 모드 설명:**\n- **user**: 사용자 프로세스 실행\n- **system**: 커널(OS) 작업\n- **iowait**: I/O 대기 (디스크/네트워크)\n- **idle**: 유휴 상태\n- **steal**: VM 하이퍼바이저 대기\n- **irq/softirq**: 인터럽트 처리\n\n**주의 상황:**\n- **iowait 높음** → 디스크 병목\n- **system 높음** → 시스템 콜 과다\n- **steal 높음** → VM 리소스 부족",
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 50, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "percent" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percent" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "idle" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "iowait" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "user" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "system" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 }, "id": 10,
+      "options": { "legend": { "calcs": ["mean"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg by (mode) (rate(node_cpu_seconds_total{instance=~\"$instance\"}[5m])) * 100", "legendFormat": "{{ mode }}", "refId": "A" }],
+      "title": "CPU 사용률 (모드별)", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## CPU 전체 사용률\n\n**이 지표가 뭐예요?**\n전체 CPU 사용률입니다 (100% - idle).\n\n**권장 수준:**\n- 30-60%: 정상\n- 70-85%: 주의\n- 85% 이상: 확장 필요\n\n**높을 때 확인사항:**\n```bash\ntop -c\nhtop\npidstat 1 5\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "line" } }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] }, "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 }, "id": 11,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "100 - (avg(rate(node_cpu_seconds_total{instance=~\"$instance\", mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU 사용률", "refId": "A" }],
+      "title": "CPU 전체 사용률", "type": "timeseries"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "id": 102, "panels": [], "title": "메모리 상세 (Memory Details)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 메모리 구성\n\n**이 지표가 뭐예요?**\n메모리가 어떻게 사용되고 있는지 보여줍니다.\n\n**구성 요소:**\n- **Used**: 실제 사용 중\n- **Buffers**: 블록 디바이스 I/O 버퍼\n- **Cached**: 페이지 캐시 (파일 시스템)\n- **Available**: 즉시 사용 가능\n\n**참고:**\n캐시는 필요 시 자동 해제되므로\nUsed + Cached가 높아도 정상입니다.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 50, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 }, "id": 20,
+      "options": { "legend": { "calcs": ["mean", "last"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_memory_MemTotal_bytes{instance=~\"$instance\"} - node_memory_MemFree_bytes{instance=~\"$instance\"} - node_memory_Buffers_bytes{instance=~\"$instance\"} - node_memory_Cached_bytes{instance=~\"$instance\"}", "legendFormat": "사용중", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_memory_Buffers_bytes{instance=~\"$instance\"}", "legendFormat": "버퍼", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_memory_Cached_bytes{instance=~\"$instance\"}", "legendFormat": "캐시", "refId": "C" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_memory_MemFree_bytes{instance=~\"$instance\"}", "legendFormat": "여유", "refId": "D" }
+      ],
+      "title": "메모리 구성", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 메모리 사용률\n\n**이 지표가 뭐예요?**\n실제 메모리 사용률입니다.\n\n**계산:**\n(전체 - Available) / 전체 × 100\n\n**권장 수준:**\n- 40-70%: 정상\n- 80% 이상: 주의\n- 90% 이상: OOM 위험\n\n**OOM 발생 시:**\nOOM Killer가 메모리를 많이 사용하는\n프로세스를 강제 종료합니다.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "line" } }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 90 }] }, "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 }, "id": 21,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "100 * (1 - node_memory_MemAvailable_bytes{instance=~\"$instance\"} / node_memory_MemTotal_bytes{instance=~\"$instance\"})", "legendFormat": "메모리 사용률", "refId": "A" }],
+      "title": "메모리 사용률", "type": "timeseries"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }, "id": 103, "panels": [], "title": "디스크 상세 (Disk Details)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 디스크 사용률\n\n**이 지표가 뭐예요?**\n각 파티션의 디스크 사용률입니다.\n\n**K8s 관련 경로:**\n- `/` - 루트 (OS, 컨테이너 런타임)\n- `/var/lib/containerd` - 이미지 저장\n- `/var/lib/kubelet` - 로컬 볼륨\n\n**권장 수준:**\n- 70% 이하: 정상\n- 80% 이상: 정리 필요\n- 90% 이상: 긴급 (노드 장애 위험)\n\n**정리 방법:**\n```bash\n# 미사용 이미지 정리\ncrictl rmi --prune\n\n# 로그 정리\njournalctl --vacuum-time=2d\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "line" } }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] }, "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 }, "id": 30,
+      "options": { "legend": { "calcs": ["mean", "last"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "100 * (1 - node_filesystem_avail_bytes{instance=~\"$instance\", fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{instance=~\"$instance\", fstype!~\"tmpfs|overlay\"})", "legendFormat": "{{ mountpoint }}", "refId": "A" }],
+      "title": "디스크 사용률 (마운트별)", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 디스크 I/O\n\n**이 지표가 뭐예요?**\n디스크 읽기/쓰기 속도입니다.\n\n**높은 I/O 원인:**\n- 로그 대량 기록\n- 데이터베이스 쿼리\n- 이미지 다운로드\n\n**I/O 병목 확인:**\n```bash\niostat -x 1\niotop\n```\n\n**디스크 유형:**\n- **HDD**: ~100 MB/s\n- **SATA SSD**: ~500 MB/s\n- **NVMe SSD**: ~3000 MB/s",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 }, "id": 31,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(node_disk_read_bytes_total{instance=~\"$instance\"}[5m]))", "legendFormat": "읽기", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(node_disk_written_bytes_total{instance=~\"$instance\"}[5m]))", "legendFormat": "쓰기", "refId": "B" }
+      ],
+      "title": "디스크 I/O", "type": "timeseries"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 }, "id": 104, "panels": [], "title": "네트워크 상세 (Network Details)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 네트워크 트래픽\n\n**이 지표가 뭐예요?**\n네트워크 인터페이스별 트래픽입니다.\n\n**트래픽 유형:**\n- **RX (Receive)**: 들어오는 트래픽\n- **TX (Transmit)**: 나가는 트래픽\n\n**K8s 네트워크:**\n- CNI(Calico) 오버레이 트래픽\n- Istio Ingress 트래픽\n- Pod간 통신",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 }, "id": 40,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "rate(node_network_receive_bytes_total{instance=~\"$instance\", device!~\"lo|veth.*|cali.*|tunl.*\"}[5m])", "legendFormat": "RX {{ device }}", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "-rate(node_network_transmit_bytes_total{instance=~\"$instance\", device!~\"lo|veth.*|cali.*|tunl.*\"}[5m])", "legendFormat": "TX {{ device }}", "refId": "B" }
+      ],
+      "title": "네트워크 트래픽 (인터페이스별)", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 네트워크 오류/드랍\n\n**이 지표가 뭐예요?**\n네트워크 패킷 오류 및 드랍 수입니다.\n\n**주요 원인:**\n- 네트워크 혼잡\n- 하드웨어 문제\n- 드라이버 버그\n- MTU 불일치\n\n**정상 상태:**\n0이 정상. 지속적인 증가는 문제입니다.\n\n**디버깅:**\n```bash\nip -s link show\nethtool -S <interface>\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 50, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 }, "id": 41,
+      "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(node_network_receive_errs_total{instance=~\"$instance\"}[5m]))", "legendFormat": "수신 오류", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(node_network_transmit_errs_total{instance=~\"$instance\"}[5m]))", "legendFormat": "송신 오류", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(node_network_receive_drop_total{instance=~\"$instance\"}[5m]))", "legendFormat": "수신 드랍", "refId": "C" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(node_network_transmit_drop_total{instance=~\"$instance\"}[5m]))", "legendFormat": "송신 드랍", "refId": "D" }
+      ],
+      "title": "네트워크 오류/드랍", "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["node", "resources", "system", "linux"],
+  "templating": {
+    "list": [
+      { "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" }, "hide": 0, "includeAll": false, "label": "데이터소스", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "skipUrlSync": false, "type": "datasource" },
+      { "allValue": ".*", "current": {}, "datasource": { "type": "prometheus", "uid": "${datasource}" }, "definition": "label_values(node_uname_info, nodename)", "hide": 0, "includeAll": false, "label": "노드", "multi": false, "name": "node", "options": [], "query": { "query": "label_values(node_uname_info, nodename)", "refId": "PrometheusVariableQueryEditor-VariableQuery" }, "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query" },
+      { "current": {}, "datasource": { "type": "prometheus", "uid": "${datasource}" }, "definition": "label_values(node_uname_info{nodename=~\"$node\"}, instance)", "hide": 2, "includeAll": false, "label": "인스턴스", "multi": false, "name": "instance", "options": [], "query": { "query": "label_values(node_uname_info{nodename=~\"$node\"}, instance)", "refId": "PrometheusVariableQueryEditor-VariableQuery" }, "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 0, "type": "query" }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "노드 리소스 모니터링",
+  "uid": "node-resources-kr",
+  "version": 1
+}

@@ -1,0 +1,36 @@
+# Envoy Sidecar PodMonitor - 서비스 메시 메트릭 수집
+# Istio sidecar(Envoy)가 주입된 모든 Pod에서 메트릭 수집
+# Istio Mesh Dashboard, Service Dashboard 등에 필요
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: envoy-stats
+  namespace: istio-system
+  labels:
+    app: istio-proxy
+    release: prometheus
+spec:
+  selector:
+    matchExpressions:
+      - key: security.istio.io/tlsMode
+        operator: Exists  # Istio sidecar가 주입된 Pod만 선택
+  namespaceSelector:
+    any: true  # 모든 namespace에서 수집
+  podMetricsEndpoints:
+    - port: http-envoy-prom  # 15090
+      path: /stats/prometheus
+      interval: 30s
+      relabelings:
+        # Pod 정보 라벨 추가
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_label_app]
+          targetLabel: app
+        # instance를 "app/pod명 (IP:port)" 형식으로 변경
+        - sourceLabels: [__meta_kubernetes_pod_label_app, __meta_kubernetes_pod_name, __address__]
+          separator: "/"
+          regex: "(.+)/(.+)/(.+)"
+          replacement: "$1/$2 ($3)"
+          targetLabel: instance

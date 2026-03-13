@@ -1,0 +1,53 @@
+{{/*
+ApplicationSets - 서비스 배포용 ApplicationSet
+*/}}
+{{- $git := .Values.git -}}
+{{- $project := .Values.project -}}
+{{- $destination := .Values.destination -}}
+
+{{- range $name, $appSet := .Values.applicationSets }}
+{{- if and $appSet.enabled $appSet.services }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: {{ $name }}
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "{{ $appSet.syncWave | default "10" }}"
+spec:
+  generators:
+    - list:
+        elements:
+          {{- range $appSet.services }}
+          - name: {{ .name }}
+          {{- end }}
+  template:
+    metadata:
+      name: 'staging-{{`{{name}}`}}'
+      labels:
+        ns: {{ $appSet.namespace }}
+      annotations:
+        notifications.argoproj.io/subscribe.on-deployed.discord-app: ""
+        notifications.argoproj.io/subscribe.on-deploy-failed.discord-app: ""
+        notifications.argoproj.io/subscribe.on-health-degraded.discord-app: ""
+    spec:
+      project: {{ $project }}
+      source:
+        repoURL: {{ $git.repoURL }}
+        targetRevision: {{ $git.targetRevision }}
+        path: {{ $appSet.chartPath }}
+        helm:
+          valueFiles:
+            - {{ $appSet.valueFilesPattern }}
+      destination:
+        server: {{ $destination.server }}
+        namespace: {{ $appSet.namespace }}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}
+{{- end }}

@@ -1,0 +1,77 @@
+{{- if .Values.istio.gateway.enabled }}
+{{- $gatewayName := .Values.istio.gateway.name | default (printf "%s-gw" (include "java-service.fullname" .)) }}
+{{- $gatewayRef := .Values.istio.gateway.externalRef | default $gatewayName }}
+{{- if not .Values.istio.gateway.externalRef }}
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: {{ $gatewayName }}
+  labels:
+    {{- include "java-service.labels" . | nindent 4 }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: {{ .Values.istio.gateway.tls.credentialName }}
+      hosts:
+        - {{ .Values.istio.gateway.host | quote }}
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - {{ .Values.istio.gateway.host | quote }}
+      tls:
+        httpsRedirect: true
+---
+{{- end }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ include "java-service.fullname" . }}-vs
+  labels:
+    {{- include "java-service.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - {{ .Values.istio.gateway.host | quote }}
+  gateways:
+    - {{ $gatewayRef }}
+  http:
+    - match:
+        - uri:
+            prefix: /
+      {{- if .Values.istio.cors }}
+      {{- if .Values.istio.cors.enabled }}
+      corsPolicy:
+        allowOrigins:
+          {{- range .Values.istio.cors.allowOrigins }}
+          - exact: {{ . | quote }}
+          {{- end }}
+        allowMethods:
+          {{- range .Values.istio.cors.allowMethods | default (list "GET" "POST" "PUT" "DELETE" "PATCH" "OPTIONS") }}
+          - {{ . }}
+          {{- end }}
+        allowHeaders:
+          {{- range .Values.istio.cors.allowHeaders | default (list "*") }}
+          - {{ . | quote }}
+          {{- end }}
+        allowCredentials: {{ .Values.istio.cors.allowCredentials | default true }}
+        maxAge: {{ .Values.istio.cors.maxAge | default "24h" | quote }}
+      {{- end }}
+      {{- end }}
+      retries:
+        attempts: {{ .Values.istio.retries.attempts | default 3 }}
+        perTryTimeout: {{ .Values.istio.retries.perTryTimeout | default "2s" }}
+        retryOn: {{ .Values.istio.retries.retryOn | default "connect-failure,refused-stream,503,reset" }}
+      route:
+        - destination:
+            host: {{ include "java-service.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}

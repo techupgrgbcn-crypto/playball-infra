@@ -1,0 +1,6 @@
+apiVersion: v2
+name: istio-security
+description: Istio security filters (WAF-like protection using EnvoyFilter + Lua)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

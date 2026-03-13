@@ -1,0 +1,25 @@
+{{- if .Values.gateway.grafana.enabled }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: grafana-vs
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+    - {{ .Values.gateway.grafana.host | quote }}
+  gateways:
+    - istio-system/goormgb-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,503,reset
+      route:
+        - destination:
+            host: {{ (index .Values "kube-prometheus-stack" "grafana" "fullnameOverride") | default (printf "%s-grafana" .Release.Name) }}
+            port:
+              number: 80
+{{- end }}

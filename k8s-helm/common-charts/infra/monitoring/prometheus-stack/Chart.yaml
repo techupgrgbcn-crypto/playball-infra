@@ -1,0 +1,7 @@
+apiVersion: v2
+name: prometheus-extras
+description: Prometheus extras (ExternalSecrets, Grafana dashboards, VirtualService, Rules)
+type: application
+version: 1.0.0
+appVersion: "0.89.0"
+# OCI dependency removed - using direct OCI reference in ArgoCD

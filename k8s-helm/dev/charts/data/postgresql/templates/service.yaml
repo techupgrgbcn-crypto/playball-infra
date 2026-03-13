@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  labels:
+    app: postgresql
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: postgresql
+      protocol: TCP
+      name: tcp-postgresql
+    {{- if .Values.exporter.enabled }}
+    - port: 9187
+      targetPort: metrics
+      protocol: TCP
+      name: http-metrics
+    {{- end }}
+  selector:
+    app: postgresql

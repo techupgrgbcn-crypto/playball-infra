@@ -1,0 +1,686 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Kubernetes Pod 모니터링 대시보드입니다. Pod 상태, CPU, 메모리, 네트워크, 재시작 현황을 실시간으로 확인합니다.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "Pod 현황 요약",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 전체 Pod 수\n\n**이 지표가 뭐예요?**\n선택한 네임스페이스의 전체 Pod 수입니다.\n\n**Pod란?**\nKubernetes 배포의 최소 단위입니다.\n\n**특징:**\n- 1개 이상의 컨테이너 포함\n- 같은 네트워크 공유 (같은 IP)\n- 같은 볼륨 공유 (스토리지)\n\n**Pod vs Container:**\n```\n+------ Pod (10.244.1.5) ------+\n|  [Container A] [Container B] |\n|    (app)       (sidecar)     |\n+------------------------------+\n```\n\n**확인 명령어:**\n```bash\n# 전체 Pod 목록\nkubectl get pods -n $namespace\n\n# 상세 정보\nkubectl describe pod <pod-name>\n\n# YAML 형태로 확인\nkubectl get pod <pod-name> -o yaml\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "count(kube_pod_info{namespace=~\"$namespace\"})",
+          "legendFormat": "전체 파드",
+          "refId": "A"
+        }
+      ],
+      "title": "전체 Pod 수",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Running Pod 수\n\n**이 지표가 뭐예요?**\n정상 실행 중인 Pod 수입니다.\n\n**Pod 상태 (Phase):**\n- **Pending**: 스케줄링 대기 또는 준비 중\n- **Running**: 정상 실행 중\n- **Succeeded**: 작업 완료 (Job 등)\n- **Failed**: 실패함\n- **Unknown**: 상태 확인 불가 (노드 통신 실패)\n\n**Running 조건:**\n1. 노드에 스케줄됨\n2. 컨테이너 이미지 다운로드 완료\n3. 최소 1개 컨테이너 실행 중\n\n**Pending 해결법:**\n```bash\n# 원인 파악\nkubectl describe pod <pod-name>\n\n# 일반적인 원인:\n# - 리소스 부족\n# - 이미지 Pull 실패\n# - PVC 바인딩 실패\n# - 노드 셀렉터 / 어피니티 불일치\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "count(kube_pod_status_phase{namespace=~\"$namespace\", phase=\"Running\"} == 1)",
+          "legendFormat": "실행 중",
+          "refId": "A"
+        }
+      ],
+      "title": "Running",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Pending Pod 수\n\n**이 지표가 뭐예요?**\n대기 중인 Pod 수입니다.\n\n**Pending 원인별 해결법:**\n\n**1. 리소스 부족:**\n```bash\n# 노드 리소스 확인\nkubectl describe nodes | grep -A5 'Allocated'\n\n# 가용 노드 확인\nkubectl get nodes\n```\n\n**2. 이미지 Pull 실패:**\n```bash\n# 이벤트 확인\nkubectl get events --field-selector reason=Failed\n\n# ImagePullBackOff 원인:\n# - 이미지 이름 오타\n# - Private registry 인증 실패\n# - 이미지 태그 없음\n```\n\n**3. PVC 바인딩 실패:**\n```bash\nkubectl get pvc -n $namespace\n```\n\n**4. 스케줄링 제약:**\n```yaml\n# nodeSelector, affinity, tolerations 확인\nkubectl get pod <pod> -o yaml | grep -A10 'nodeSelector\\|affinity\\|tolerations'\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "count(kube_pod_status_phase{namespace=~\"$namespace\", phase=\"Pending\"} == 1) or vector(0)",
+          "legendFormat": "대기 중",
+          "refId": "A"
+        }
+      ],
+      "title": "Pending",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Failed Pod 수\n\n**이 지표가 뭐예요?**\n실패한 Pod 수입니다.\n\n**Failed 조건:**\n- 종료 코드가 0이 아닌 컨테이너 존재\n- restartPolicy가 Never인 경우\n\n**주요 종료 코드:**\n| 코드 | 의미 |\n|------|------|\n| 0 | 정상 종료 |\n| 1 | 애플리케이션 오류 |\n| 137 | SIGKILL (OOMKilled) |\n| 143 | SIGTERM (graceful 종료) |\n\n**디버깅:**\n```bash\n# 종료 상태 확인\nkubectl get pod <pod> -o jsonpath='{.status.containerStatuses[*].state}'\n\n# 이전 로그 확인\nkubectl logs <pod> --previous\n\n# OOMKilled 확인\nkubectl describe pod <pod> | grep -i oom\n```\n\n**정상 상태:**\n0개 (지속적인 Failed Pod는 조사 필요)",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "count(kube_pod_status_phase{namespace=~\"$namespace\", phase=\"Failed\"} == 1) or vector(0)",
+          "legendFormat": "실패",
+          "refId": "A"
+        }
+      ],
+      "title": "Failed",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 컨테이너 재시작 횟수\n\n**이 지표가 뭐예요?**\n전체 컨테이너 재시작 횟수입니다.\n\n**재시작 원인:**\n- **OOMKilled**: 메모리 초과\n- **CrashLoopBackOff**: 반복 크래시\n- **Liveness Probe 실패**: 헬스체크 실패\n\n**재시작 정책 (restartPolicy):**\n- **Always**: 항상 재시작 (기본값)\n- **OnFailure**: 실패시만 재시작\n- **Never**: 재시작 안함\n\n**CrashLoopBackOff 해결:**\n```bash\n# 로그 확인\nkubectl logs <pod> --previous\n\n# 컨테이너 상태 확인\nkubectl get pods -o wide\n\n# 이벤트 확인\nkubectl describe pod <pod> | grep -A20 Events\n```\n\n**정상 상태:**\n- 재시작 횟수 = 0이 이상적\n- 장기간 안정적이면 좋음",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"})",
+          "legendFormat": "재시작",
+          "refId": "A"
+        }
+      ],
+      "title": "컨테이너 재시작",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Ready Pod 비율\n\n**이 지표가 뭐예요?**\n전체 Pod 중 Ready 상태 비율입니다.\n\n**Ready 조건:**\n모든 Readiness Probe 통과\n\n**Ready vs Running:**\n- Running: 컨테이너 실행 중\n- Ready: 트래픽 받을 준비 완료\n\n**Readiness Probe 예시:**\n```yaml\nreadinessProbe:\n  httpGet:\n    path: /health\n    port: 8080\n  initialDelaySeconds: 5\n  periodSeconds: 10\n```\n\n**Ready 아닌 Pod 확인:**\n```bash\n# Not Ready Pod 찾기\nkubectl get pods | grep '0/'\n\n# Readiness 설정 확인\nkubectl describe pod <pod> | grep -A5 'Readiness'\n```\n\n**SLO 권장:**\n- 99% 이상 Ready 유지",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.9 },
+              { "color": "green", "value": 0.99 }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"}) / count(kube_pod_info{namespace=~\"$namespace\"})",
+          "legendFormat": "Ready 비율",
+          "refId": "A"
+        }
+      ],
+      "title": "Ready 비율",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "CPU 사용량",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Pod별 CPU 사용량\n\n**이 지표가 뭐예요?**\n각 Pod의 CPU 사용량입니다.\n\n**CPU 단위:**\n- 1 = 1 vCPU/Core\n- 100m = 0.1 Core\n- 1000m = 1 Core\n\n**Request vs Limit:**\n```yaml\nresources:\n  requests:\n    cpu: 100m    # 최소 보장량\n  limits:\n    cpu: 500m    # 최대 사용량\n```\n\n**CPU Throttling:**\nLimit 초과 시 CPU 제한됨 (OOM Kill 없음)\n\n**확인 명령어:**\n```bash\n# 실시간 사용량\nkubectl top pods -n $namespace\n\n# VPA 추천값 확인\nkubectl describe vpa <vpa-name>\n```\n\n**권장 설정:**\n- Request = 평균 사용량 × 1.2\n- Limit = 피크 사용량 × 1.5",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 7,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}[5m])) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "Pod별 CPU 사용량",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## CPU Request 대비 사용률\n\n**이 지표가 뭐예요?**\n설정한 CPU Request 대비 실제 사용률입니다.\n\n**해석:**\n- **< 50%**: Request 과다 설정 (낭비)\n- **50-80%**: 적정 수준\n- **> 100%**: Request 부족 (증설 필요)\n\n**100% 초과가 가능한 이유:**\n- Request는 최소 보장량\n- Limit까지 사용 가능\n- 다른 Pod가 여유분을 안 쓰면 더 사용 가능\n\n**확인 명령어:**\n```bash\n# 현재 request 확인\nkubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{\"\\t\"}{.spec.containers[*].resources.requests.cpu}{\"\\n\"}{end}'\n```\n\n**권장 조치:**\nRequest 대비 사용률이 지속적으로 낮으면 Pod 수 축소 고려 → 비용 절감",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 8,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}[5m])) by (pod) / sum(kube_pod_container_resource_requests{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"cpu\"}) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Request 대비 사용률",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "panels": [],
+      "title": "메모리 사용량",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Pod별 메모리 사용량\n\n**이 지표가 뭐예요?**\n각 Pod의 Working Set 메모리입니다.\n\n**Working Set이란?**\n현재 활성화된 메모리 (캐시 제외)\n\n**메모리 단위:**\n- Ki = Kibibyte (1024 bytes)\n- Mi = Mebibyte (1024 Ki)\n- Gi = Gibibyte (1024 Mi)\n\n**OOMKilled:**\n```\nLimit 초과 → 컨테이너 강제 종료 (exit code 137)\n```\n\n**OOM 방지 설정:**\n```yaml\nresources:\n  limits:\n    memory: 512Mi  # 이 값 초과하면 Kill됨\n```\n\n**확인 명령어:**\n```bash\n# 실시간 사용량\nkubectl top pods -n $namespace\n\n# OOM 여부 확인\nkubectl describe pod <pod> | grep -i oom\n\n# 힙 덤프 분석 (Java)\njcmd <pid> GC.heap_info\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "id": 9,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "Pod별 메모리 사용량",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 메모리 Limit 대비 사용률\n\n**이 지표가 뭐예요?**\n설정한 Limit 대비 메모리 사용률입니다.\n\n**주의:**\n100% 도달 시 OOMKilled!\n\n**권장 수준:**\n- **< 70%**: 안전\n- **70-85%**: 주의\n- **> 85%**: 위험 (메모리 증설 필요)\n\n**메모리 누수 징후:**\n```\n사용량이 시간이 지남에 따라 계속 증가 → OOM 발생\n```\n\n**메모리 프로파일링:**\n```bash\n# Java\njmap -histo <pid>\njcmd <pid> GC.run\n\n# Node.js\nnode --inspect app.js\n# Chrome DevTools 연결\n\n# Go\ngo tool pprof\n```\n\n**알림 설정 예시:**\n```yaml\n# 85% 초과 시 알림\nalert: PodMemoryHigh\nexpr: container_memory_working_set_bytes / kube_pod_container_resource_limits > 0.85\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.7 },
+              { "color": "red", "value": 0.85 }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}) by (pod) / sum(kube_pod_container_resource_limits{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"memory\"}) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "메모리 Limit 대비 사용률",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 103,
+      "panels": [],
+      "title": "네트워크 트래픽",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 네트워크 수신량 (RX)\n\n**이 지표가 뭐예요?**\nPod로 들어오는 트래픽입니다.\n\n**트래픽 유형:**\n- **Ingress Traffic**: 외부 → Pod\n- **Pod-to-Pod**: 다른 Pod → 이 Pod\n\n**높은 RX 원인:**\n- API 호출 수신\n- 데이터 다운로드\n- 데이터베이스 쿼리 결과\n\n**디버깅 명령어:**\n```bash\n# Pod 네트워크 상태\nkubectl exec <pod> -- ss -tuln\n\n# DNS 해석 확인\nkubectl exec <pod> -- nslookup <service>\n\n# 연결 테스트\nkubectl exec <pod> -- curl -v <url>\n```\n\n**CNI 문제 확인:**\n```bash\n# Calico 상태\nkubectl get pods -n calico-system\ncalicoctl node status\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 11,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(container_network_receive_bytes_total{namespace=~\"$namespace\", pod=~\"$pod\"}[5m])) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "네트워크 수신량 (RX)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 네트워크 송신량 (TX)\n\n**이 지표가 뭐예요?**\nPod에서 나가는 트래픽입니다.\n\n**트래픽 유형:**\n- **Egress Traffic**: Pod → 외부\n- **Response**: 클라이언트 응답\n\n**높은 TX 원인:**\n- API 응답 (대용량 JSON)\n- 파일 업로드/다운로드\n- 로그 전송\n\n**대역폭 제한:**\n```yaml\napiVersion: v1\nkind: Pod\nmetadata:\n  annotations:\n    kubernetes.io/ingress-bandwidth: 10M\n    kubernetes.io/egress-bandwidth: 10M\n```\n\n**Egress 네트워크 정책:**\n```yaml\napiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nspec:\n  podSelector: {}\n  policyTypes:\n  - Egress\n  egress:\n  - to:\n    - ipBlock:\n        cidr: 10.0.0.0/8\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 12,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(container_network_transmit_bytes_total{namespace=~\"$namespace\", pod=~\"$pod\"}[5m])) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "네트워크 송신량 (TX)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "id": 104,
+      "panels": [],
+      "title": "컨테이너 상태",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 컨테이너 재시작 추이\n\n**이 지표가 뭐예요?**\n시간별 컨테이너 재시작 횟수입니다.\n\n**재시작 주요 원인:**\n\n**1. OOMKilled (메모리 초과)**\n```bash\nkubectl describe pod <pod> | grep -i oom\n```\n\n**2. Liveness Probe 실패**\n```bash\nkubectl describe pod <pod> | grep -A5 'Liveness'\n```\n\n**3. 애플리케이션 크래시**\n```bash\nkubectl logs <pod> --previous\n```\n\n**4. 외부 요인**\n- 노드 재시작\n- 선점 (Preemption)\n\n**패턴 분석:**\n- 특정 시간대 집중 → 트래픽 증가?\n- 주기적 발생 → 메모리 누수?\n- 무작위 발생 → 외부 의존성 문제?",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "bars", "fillOpacity": 100, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "id": 13,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\", pod=~\"$pod\"}[1h])) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "재시작 추이 (시간당)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 컨테이너 상태 분포\n\n**이 지표가 뭐예요?**\n컨테이너 상태별 분포입니다.\n\n**상태 종류:**\n- **Running**: 실행 중\n- **Waiting**: 대기 중\n- **Terminated**: 종료됨\n\n**Waiting 세부 사유:**\n- `ContainerCreating`: 컨테이너 생성 중\n- `ImagePullBackOff`: 이미지 다운로드 실패\n- `CrashLoopBackOff`: 반복 크래시\n\n**상태 확인:**\n```bash\n# 컨테이너 상태 상세\nkubectl get pod <pod> -o jsonpath='{.status.containerStatuses}' | jq\n\n# init 컨테이너 상태\nkubectl get pod <pod> -o jsonpath='{.status.initContainerStatuses}' | jq\n```\n\n**Init Container:**\n메인 컨테이너 전에 실행되는 컨테이너\n→ 실패 시 Pod 전체가 Pending",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Running" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Waiting" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Terminated" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "id": 14,
+      "options": {
+        "displayLabels": ["name", "value"],
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value"] },
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_pod_container_status_running{namespace=~\"$namespace\", pod=~\"$pod\"} == 1)", "legendFormat": "실행 중", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_pod_container_status_waiting{namespace=~\"$namespace\", pod=~\"$pod\"} == 1)", "legendFormat": "대기 중", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_pod_container_status_terminated{namespace=~\"$namespace\", pod=~\"$pod\"} == 1)", "legendFormat": "종료됨", "refId": "C" }
+      ],
+      "title": "컨테이너 상태 분포",
+      "type": "piechart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
+      "id": 105,
+      "panels": [],
+      "title": "Pod 상세 목록",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Pod 상세 테이블\n\n**컬럼 설명:**\n- **Pod**: Pod 이름\n- **Ready**: Ready 상태 여부\n- **Restarts**: 컨테이너 재시작 횟수\n- **CPU**: 현재 CPU 사용량 (cores)\n- **Memory**: 현재 메모리 사용량\n- **Age**: Pod 생성 후 경과 시간\n\n**활용법:**\n- 문제 Pod 빠른 식별\n- 리소스 사용량 비교\n- 재시작 많은 Pod 파악\n\n**k9s 사용법:**\n```\nk9s → :pods → namespace 선택\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "short" }, { "id": "decimals", "value": 3 }] },
+          { "matcher": { "id": "byName", "options": "Memory" }, "properties": [{ "id": "unit", "value": "bytes" }] },
+          {
+            "matcher": { "id": "byName", "options": "Restarts" },
+            "properties": [
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] } },
+              { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 42 },
+      "id": 15,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "Restarts" }]
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(kube_pod_container_status_restarts_total{namespace=~\"$namespace\", pod=~\"$pod\"}) by (pod)", "format": "table", "instant": true, "legendFormat": "__auto", "refId": "Restarts" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}[5m])) by (pod)", "format": "table", "instant": true, "legendFormat": "__auto", "refId": "CPU" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}) by (pod)", "format": "table", "instant": true, "legendFormat": "__auto", "refId": "Memory" }
+      ],
+      "title": "Pod 상세 테이블",
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "indexByName": {}, "renameByName": { "Value #CPU": "CPU", "Value #Memory": "Memory", "Value #Restarts": "Restarts", "pod": "Pod" } } }
+      ],
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["kubernetes", "pods", "containers"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "prometheus" },
+        "hide": 0, "includeAll": false, "label": "데이터소스", "multi": false,
+        "name": "datasource", "options": [], "query": "prometheus", "refresh": 1,
+        "regex": "", "skipUrlSync": false, "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "definition": "label_values(kube_pod_info, namespace)",
+        "hide": 0, "includeAll": true, "label": "네임스페이스", "multi": false,
+        "name": "namespace", "options": [],
+        "query": { "query": "label_values(kube_pod_info, namespace)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "definition": "label_values(kube_pod_info{namespace=~\"$namespace\"}, pod)",
+        "hide": 0, "includeAll": true, "label": "Pod", "multi": true,
+        "name": "pod", "options": [],
+        "query": { "query": "label_values(kube_pod_info{namespace=~\"$namespace\"}, pod)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Kubernetes Pod 모니터링",
+  "uid": "k8s-pods",
+  "version": 1
+}

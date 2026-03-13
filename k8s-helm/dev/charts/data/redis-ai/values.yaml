@@ -1,0 +1,58 @@
+# Redis for AI Defense
+# 세션 상태 저장용 (휘발성 OK)
+
+image:
+  repository: redis
+  tag: "7-alpine"
+  pullPolicy: IfNotPresent
+
+# AI Defense용은 영속성 불필요 (세션 데이터)
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 30m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+service:
+  port: 6379
+
+config:
+  maxmemory: 100mb
+  maxmemoryPolicy: allkeys-lru
+  # 세션 TTL 기본값 (30분)
+  defaultTtl: 1800
+
+exporter:
+  enabled: true
+  image:
+    repository: oliver006/redis_exporter
+    tag: v1.66.0
+    pullPolicy: IfNotPresent
+  port: 9121
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+nodeSelector: {}
+tolerations: []
+
+probes:
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5

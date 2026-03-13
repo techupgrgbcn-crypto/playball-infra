@@ -1,0 +1,11 @@
+{{- range .Values.namespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- if .istio }}
+    istio-injection: enabled
+    {{- end }}
+{{- end }}

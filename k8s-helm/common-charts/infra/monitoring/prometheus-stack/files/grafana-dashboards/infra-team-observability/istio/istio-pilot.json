@@ -1,0 +1,1513 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Istio Control Plane (istiod) 모니터링 대시보드입니다. istiod는 Pilot, Citadel, Galley 역할을 통합하며, 설정 동기화와 인증서 관리 상태를 확인합니다.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "컨트롤 플레인 상태",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## istiod 인스턴스 수\n\n**이 지표가 뭐예요?**\n현재 실행 중인 istiod Pod 개수입니다.\n\n**istiod가 뭐예요?**\nIstio 1.5부터 통합된 Control Plane 컴포넌트입니다.\n\n**역할:**\n- **Pilot**: Envoy 설정 배포 (xDS API)\n- **Citadel**: mTLS 인증서 관리\n- **Galley**: 설정 검증\n\n**정상 값:**\n- 개발환경: 1개\n- 프로덕션: 2-3개 (HA 구성)\n\n**확인 명령어:**\n```bash\nkubectl get pods -n istio-system -l app=istiod\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(up{job=\"istiod\"})",
+          "legendFormat": "istiod",
+          "refId": "A"
+        }
+      ],
+      "title": "istiod 인스턴스",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 연결된 Envoy Proxy 수\n\n**이 지표가 뭐예요?**\nistiod에 연결된 Envoy 사이드카 프록시 개수입니다.\n\n**Envoy가 뭐예요?**\n각 Pod에 주입되는 사이드카 프록시입니다.\n\n**역할:**\n- 트래픽 라우팅 및 로드밸런싱\n- mTLS 암호화/복호화\n- 메트릭, 로그, 트레이싱 수집\n- 보안 정책 적용\n\n**정상 값:**\nIstio가 적용된 Pod 수와 동일해야 함\n\n**확인 명령어:**\n```bash\n# Proxy 상태 확인\nistioctl proxy-status\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(pilot_xds)",
+          "legendFormat": "Envoy Proxies",
+          "refId": "A"
+        }
+      ],
+      "title": "Envoy 프록시 수",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## xDS 푸시 지연시간 (P99)\n\n**이 지표가 뭐예요?**\n설정을 Envoy에 전달하는데 걸리는 시간입니다.\n\n**xDS가 뭐예요?**\nistiod가 Envoy에 설정을 전달하는 프로토콜입니다.\n\n**xDS 종류:**\n- **CDS**: Cluster Discovery (백엔드 서비스 목록)\n- **EDS**: Endpoint Discovery (Pod IP 목록)\n- **LDS**: Listener Discovery (리스너 설정)\n- **RDS**: Route Discovery (라우팅 규칙)\n\n**정상 값:**\n- < 100ms: 정상\n- 100-500ms: 주의 필요\n- > 1s: 문제 발생\n\n**느려지는 원인:**\n- 설정 또는 서비스가 너무 많음\n- istiod 리소스 부족\n- 네트워크 지연",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(pilot_xds_push_time_bucket[5m])) by (le))",
+          "legendFormat": "P99 Latency",
+          "refId": "A"
+        }
+      ],
+      "title": "xDS 지연시간 (P99)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## xDS 푸시 오류\n\n**이 지표가 뭐예요?**\n설정 푸시 실패 횟수입니다.\n\n**발생 원인:**\n- Envoy와 연결 끊김\n- 잘못된 설정 (VirtualService 오류 등)\n- 리소스 부족\n\n**정상 값:**\n0이어야 정상입니다.\n\n**디버깅 방법:**\n```bash\n# istiod 로그 확인\nkubectl logs -n istio-system -l app=istiod --tail=100\n\n# 특정 proxy 설정 확인\nistioctl proxy-config all <pod-name>\n\n# 설정 검증\nistioctl analyze\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(pilot_xds_push_errors) or vector(0)",
+          "legendFormat": "Push Errors",
+          "refId": "A"
+        }
+      ],
+      "title": "푸시 오류",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 서비스 수\n\n**이 지표가 뭐예요?**\nistiod가 관리하는 서비스 개수입니다.\n\n**포함 항목:**\n- Kubernetes Services\n- ServiceEntry (외부 서비스)\n\n**확인 명령어:**\n```bash\n# 전체 서비스 목록\nkubectl get svc -A\n\n# ServiceEntry 목록 (외부 서비스)\nkubectl get serviceentry -A\n\n# Istio가 인식하는 서비스\nistioctl proxy-config cluster <pod> --fqdn\n```\n\n**주의사항:**\n서비스가 많으면 xDS 푸시 시간이 증가합니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(pilot_services) or vector(0)",
+          "legendFormat": "서비스",
+          "refId": "A"
+        }
+      ],
+      "title": "서비스 수",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## VirtualService 수\n\n**이 지표가 뭐예요?**\n등록된 VirtualService 개수입니다.\n\n**VirtualService란?**\nL7 트래픽 라우팅 규칙입니다.\n\n**주요 기능:**\n- URL 기반 라우팅\n- 헤더 기반 트래픽 분할 (카나리 배포)\n- 타임아웃 및 재시도 설정\n- 장애 주입, 미러링\n\n**예시:**\n```yaml\napiVersion: networking.istio.io/v1beta1\nkind: VirtualService\nmetadata:\n  name: reviews-route\nspec:\n  hosts:\n  - reviews\n  http:\n  - match:\n    - headers:\n        end-user:\n          exact: jason\n    route:\n    - destination:\n        host: reviews\n        subset: v2\n  - route:\n    - destination:\n        host: reviews\n        subset: v1\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(pilot_virt_services) or vector(0)",
+          "legendFormat": "VS",
+          "refId": "A"
+        }
+      ],
+      "title": "VirtualService 수",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 101,
+      "panels": [],
+      "title": "xDS 설정 동기화",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## xDS 푸시 유형별 추이\n\n**이 지표가 뭐예요?**\n각 xDS 유형별 푸시 빈도입니다.\n\n**xDS 유형 설명:**\n\n| 유형 | 설명 | 변경 시점 |\n|------|------|-------------|\n| **CDS** | Cluster (백엔드 서비스 목록) | Service 생성/삭제 |\n| **EDS** | Endpoint (실제 Pod IP) | Pod 생성/삭제 |\n| **LDS** | Listener (포트 리스너) | Gateway/Sidecar 설정 변경 |\n| **RDS** | Route (라우팅 규칙) | VirtualService 변경 |\n| **SDS** | Secret (인증서) | 인증서 갱신 시 |\n\n**푸시가 많아지는 상황:**\n- Deployment 스케일링\n- HPA 동작 중\n- 설정 변경 (VirtualService 등)\n\n**확인 명령어:**\n```bash\n# 특정 Pod의 xDS 설정 확인\nistioctl proxy-config cluster <pod>\nistioctl proxy-config endpoint <pod>\nistioctl proxy-config listener <pod>\nistioctl proxy-config route <pod>\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(pilot_xds_pushes{type=\"cds\"}[5m]))",
+          "legendFormat": "CDS (Cluster)",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(pilot_xds_pushes{type=\"eds\"}[5m]))",
+          "legendFormat": "EDS (Endpoint)",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(pilot_xds_pushes{type=\"lds\"}[5m]))",
+          "legendFormat": "LDS (Listener)",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(pilot_xds_pushes{type=\"rds\"}[5m]))",
+          "legendFormat": "RDS (Route)",
+          "refId": "D"
+        }
+      ],
+      "title": "xDS 푸시 유형별 (초당)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 푸시 지연시간 분포\n\n**이 지표가 뭐예요?**\nxDS 푸시 지연시간의 백분위 분포입니다.\n\n**백분위 설명:**\n- **P50 (중앙값)**: 절반의 요청이 이 시간 내에 완료\n- **P90**: 90%의 요청이 이 시간 내에 완료\n- **P99**: 99%의 요청이 이 시간 내에 완료\n\n**왜 P99가 중요한가요?**\n대부분의 요청은 P50에 가깝지만,\nP99는 최악의 사용자 경험을 나타냅니다.\n\n**SLO 권장값:**\n- P50 < 50ms\n- P99 < 500ms\n\n**느려지는 원인:**\n- istiod 리소스 부족\n- Sidecar 설정으로 범위 제한 필요\n- 불필요한 ServiceEntry 정리",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.50, sum(rate(pilot_xds_push_time_bucket[5m])) by (le))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.90, sum(rate(pilot_xds_push_time_bucket[5m])) by (le))",
+          "legendFormat": "P90",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(pilot_xds_push_time_bucket[5m])) by (le))",
+          "legendFormat": "P99",
+          "refId": "C"
+        }
+      ],
+      "title": "xDS 푸시 지연시간",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 102,
+      "panels": [],
+      "title": "mTLS 인증서 관리",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 인증서 서명 요청 (CSR)\n\n**이 지표가 뭐예요?**\nworkload(Pod)가 istiod에 인증서를 요청한 횟수입니다.\n\n**mTLS 동작 방식:**\n1. 새 Pod 시작 시 CSR 전송\n2. istiod가 CSR 검증\n3. istiod가 인증서 발급\n4. Pod간 mTLS 통신 가능\n\n**인증서 갱신:**\n- 기본 유효기간: 24시간\n- 만료 전 자동 갱신: 약 1시간 전\n\n**CSR이 증가하는 경우:**\n- 새 Deployment 배포\n- istiod 재시작 (모든 인증서 재발급)\n\n**확인 명령어:**\n```bash\n# Pod 인증서 확인\nistioctl proxy-config secret <pod>\n\n# 인증서 상세 정보\nkubectl exec <pod> -c istio-proxy -- \\\n  cat /var/run/secrets/istio/root-cert.pem | \\\n  openssl x509 -text -noout\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(citadel_server_csr_count[5m]))",
+          "legendFormat": "CSR 요청",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(citadel_server_success_cert_issuance_count[5m]))",
+          "legendFormat": "발급 성공",
+          "refId": "B"
+        }
+      ],
+      "title": "인증서 서명 요청 (CSR)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 인증 오류\n\n**이 지표가 뭐예요?**\n인증서 발급/검증 실패 횟수입니다.\n\n**오류 유형:**\n- **CSR 파싱 오류**: 잘못된 인증서 요청\n- **인증 실패**: mTLS 핸드셰이크 실패\n\n**발생 원인:**\n- Root CA 불일치\n- 인증서 만료됨\n- PeerAuthentication 설정 오류\n\n**디버깅 방법:**\n```bash\n# mTLS 상태 확인\nistioctl authn tls-check <pod>\n\n# PeerAuthentication 확인\nkubectl get peerauthentication -A\n\n# 인증 관련 로그\nkubectl logs <pod> -c istio-proxy | grep -i auth\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(citadel_server_csr_parsing_err_count[5m]))",
+          "legendFormat": "CSR 파싱 오류",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(citadel_server_authentication_failure_count[5m]))",
+          "legendFormat": "인증 실패",
+          "refId": "B"
+        }
+      ],
+      "title": "인증 오류",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 103,
+      "panels": [],
+      "title": "설정 동기화",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 설정 변경 이벤트\n\n**이 지표가 뭐예요?**\nKubernetes 리소스 변경 감지 횟수입니다.\n\n**감지하는 리소스:**\n- Services, Endpoints\n- VirtualService, DestinationRule\n- Gateway, ServiceEntry\n- PeerAuthentication, AuthorizationPolicy\n\n**동작 방식:**\n1. K8s API Watch로 변경 감지\n2. 변경 사항 처리\n3. 관련 Envoy에 xDS 푸시\n\n**이벤트 유형:**\n- Add: 새 리소스 생성\n- Update: 기존 리소스 수정\n- Delete: 리소스 삭제\n\n**확인 명령어:**\n```bash\n# Istio 리소스 목록\nkubectl get virtualservices,destinationrules,gateways -A\n\n# 설정 검증\nistioctl analyze -A\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(pilot_k8s_cfg_events{type=\"add\"}[5m]))",
+          "legendFormat": "추가 (Add)",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(pilot_k8s_cfg_events{type=\"update\"}[5m]))",
+          "legendFormat": "수정 (Update)",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(pilot_k8s_cfg_events{type=\"delete\"}[5m]))",
+          "legendFormat": "삭제 (Delete)",
+          "refId": "C"
+        }
+      ],
+      "title": "설정 변경 이벤트 (K8s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 설정 충돌/오류\n\n**이 지표가 뭐예요?**\n설정 충돌이나 오류 발생 횟수입니다.\n\n**충돌 원인:**\n- 동일 호스트에 여러 VirtualService\n- Gateway와 VirtualService 불일치\n- 포트 충돌 설정\n\n**문제 해결 방법:**\n```bash\n# 설정 문제 분석 (필수!)\nistioctl analyze -A\n\n# 특정 리소스 검증\nkubectl get virtualservice <name> -o yaml | istioctl analyze -f -\n```\n\n**베스트 프랙티스:**\n- CI/CD에 istioctl analyze 추가\n- VirtualService 네이밍 규칙 정립",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(pilot_conflict_inbound_listener) or vector(0)",
+          "legendFormat": "Inbound 리스너 충돌",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(pilot_conflict_outbound_listener_http_over_current_tcp) or vector(0)",
+          "legendFormat": "HTTP/TCP 충돌",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(pilot_total_xds_internal_errors) or vector(0)",
+          "legendFormat": "내부 오류",
+          "refId": "C"
+        }
+      ],
+      "title": "설정 충돌/오류",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 104,
+      "panels": [],
+      "title": "istiod 리소스 사용량",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## istiod CPU 사용량\n\n**이 지표가 뭐예요?**\nistiod Pod의 CPU 사용률입니다.\n\n**CPU가 증가하는 경우:**\n- xDS 푸시 증가\n- 설정 생성/검증\n- 인증서 발급 증가\n\n**권장 리소스:**\n- 개발환경: 500m CPU, 2Gi Memory\n- 프로덕션: 2 CPU, 4Gi Memory\n\n**HPA 설정 예시:**\n```yaml\n# values.yaml\npilot:\n  autoscaleEnabled: true\n  autoscaleMin: 2\n  autoscaleMax: 5\n  resources:\n    requests:\n      cpu: 500m\n      memory: 2Gi\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"istio-system\", pod=~\"istiod.*\"}[5m])) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "istiod CPU 사용량",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## istiod 메모리 사용량\n\n**이 지표가 뭐예요?**\nistiod Pod의 메모리 사용량입니다.\n\n**메모리가 증가하는 경우:**\n- 서비스 수 증가\n- Envoy 연결 수 증가\n- 설정 캐시\n\n**메모리 누수 의심 시:**\n- 설정 변경이 없는데도 계속 증가\n- 관리 대상 Envoy 수가 변하지 않는데 증가\n\n**OOM 방지 설정:**\n```yaml\nresources:\n  limits:\n    memory: 4Gi\n  requests:\n    memory: 2Gi\n```\n\n**주의사항:**\nistiod 메모리가 limit에 도달하면\nOOM Kill이 발생하여 전체 메시에 영향을 줍니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"istio-system\", pod=~\"istiod.*\"}) by (pod)",
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "title": "istiod 메모리 사용량",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 105,
+      "panels": [],
+      "title": "사이드카 인젝션",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 사이드카 인젝션 현황\n\n**이 지표가 뭐예요?**\n사이드카 주입 성공/실패 횟수입니다.\n\n**사이드카 인젝션이란?**\nPod 생성 시 자동으로 istio-proxy 컨테이너가 추가되는 것\n\n**인젝션 조건:**\n1. Namespace에 `istio-injection=enabled` 라벨\n2. 또는 Pod에 `sidecar.istio.io/inject: \"true\"` 어노테이션\n\n**인젝션 제외:**\n```yaml\nannotations:\n  sidecar.istio.io/inject: \"false\"\n```\n\n**확인 명령어:**\n```bash\n# 인젝션 활성화된 네임스페이스\nkubectl get ns -L istio-injection\n\n# 인젝션 활성화\nkubectl label ns <namespace> istio-injection=enabled\n\n# 기존 Pod 재시작 (인젝션 적용)\nkubectl rollout restart deploy -n <namespace>\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 42
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(sidecar_injection_requests_total[5m]))",
+          "legendFormat": "전체 요청",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(sidecar_injection_success_total[5m]))",
+          "legendFormat": "성공",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(sidecar_injection_failure_total[5m]))",
+          "legendFormat": "실패",
+          "refId": "C"
+        }
+      ],
+      "title": "사이드카 인젝션 현황",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "## 웹훅 지연시간\n\n**이 지표가 뭐예요?**\n사이드카 인젝션 웹훅 처리 시간입니다.\n\n**웹훅 동작 방식:**\n1. Pod 생성 요청 → K8s API 서버\n2. API 서버 → istiod 웹훅 호출\n3. istiod가 사이드카 설정 추가\n4. 수정된 Pod spec 반환\n\n**느려지면?**\n웹훅이 느리면 Pod 생성이 지연됩니다.\n\n**정상 값:**\n- < 100ms: 정상\n- > 500ms: 주의 필요\n\n**느려지는 원인:**\n- istiod 리소스 부족\n- 네트워크 지연\n- 대량 배포 시",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 42
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.50, sum(rate(sidecar_injection_time_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(sidecar_injection_time_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P99",
+          "refId": "B"
+        }
+      ],
+      "title": "웹훅 처리 지연시간",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["istio", "pilot", "control-plane"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "데이터소스",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Istio Control Plane 모니터링",
+  "uid": "istio-pilot",
+  "version": 1
+}

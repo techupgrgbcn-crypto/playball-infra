@@ -1,0 +1,12 @@
+# OpenTelemetry Collector
+apiVersion: v2
+name: otel-collector
+description: OpenTelemetry Collector for trace collection
+type: application
+version: 0.1.0
+appVersion: "0.96.0"
+
+dependencies:
+  - name: opentelemetry-collector
+    version: "0.85.0"
+    repository: "https://open-telemetry.github.io/opentelemetry-helm-charts"

@@ -1,0 +1,81 @@
+{{/*
+OCI Charts - ECR에서 직접 참조하는 Multi-source Applications
+*/}}
+{{- $ecr := printf "oci://%s.dkr.ecr.%s.amazonaws.com" .Values.ecr.accountId .Values.ecr.region -}}
+{{- $git := .Values.git -}}
+{{- $project := .Values.project -}}
+{{- $destination := .Values.destination -}}
+
+{{- range $name, $chart := .Values.ociCharts }}
+{{- if $chart.enabled }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name }}
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "{{ $chart.syncWave | default "0" }}"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: {{ $project }}
+  sources:
+    # Chart from ECR OCI (chart field includes helm/ prefix)
+    - repoURL: {{ $ecr }}
+      chart: helm/{{ $chart.chart }}
+      targetRevision: {{ $chart.version }}
+      {{- if or $chart.valueFiles $chart.skipCrds }}
+      helm:
+        {{- if $chart.skipCrds }}
+        skipCrds: true
+        {{- end }}
+        {{- if $chart.valueFiles }}
+        valueFiles:
+          {{- range $chart.valueFiles }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    # Values from Git
+    - repoURL: {{ $git.repoURL }}
+      targetRevision: {{ $git.targetRevision }}
+      ref: values
+  destination:
+    server: {{ $destination.server }}
+    namespace: {{ $chart.namespace }}
+  {{- if $chart.ignoreDifferences }}
+  ignoreDifferences:
+    {{- range $chart.ignoreDifferences }}
+    - group: {{ .group | default "" | quote }}
+      kind: {{ .kind }}
+      {{- if .name }}
+      name: {{ .name }}
+      {{- end }}
+      {{- if .jsonPointers }}
+      jsonPointers:
+        {{- range .jsonPointers }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- if .jqPathExpressions }}
+      jqPathExpressions:
+        {{- range .jqPathExpressions }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      {{- if $chart.syncOptions }}
+      {{- range $chart.syncOptions }}
+      - {{ . }}
+      {{- end }}
+      {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,38 @@
+{{- if .Values.faro.virtualService.enabled }}
+# Faro VirtualService - api.{env}.goormgb.space/faro/* 라우팅
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: faro-receiver
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+    - {{ .Values.faro.virtualService.host | quote }}
+  gateways:
+    - {{ .Values.faro.virtualService.gateway }}
+  http:
+    # /faro/* → Alloy Faro Receiver
+    - match:
+        - uri:
+            prefix: /faro
+      rewrite:
+        uri: /collect
+      corsPolicy:
+        allowOrigins:
+          {{- range .Values.faro.cors.allowOrigins }}
+          - exact: {{ . | quote }}
+          {{- end }}
+        allowMethods:
+          - POST
+          - OPTIONS
+        allowHeaders:
+          - content-type
+          - x-faro-session-id
+        allowCredentials: true
+        maxAge: "24h"
+      route:
+        - destination:
+            host: {{ .Release.Name }}-alloy.{{ .Release.Namespace }}.svc.cluster.local
+            port:
+              number: 12347
+{{- end }}

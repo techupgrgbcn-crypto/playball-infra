@@ -1,0 +1,49 @@
+# CloudBeaver defaults
+replicaCount: 1
+
+image:
+  repository: dbeaver/cloudbeaver
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8978
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 2Gi
+
+persistence:
+  enabled: true
+  size: 2Gi
+  storageClass: ""
+
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+# Istio VirtualService
+virtualService:
+  enabled: false
+  host: ""
+  gateway: "istio-system/goormgb-gateway"
+
+# PostgreSQL connection (data namespace)
+postgresql:
+  host: postgresql.data.svc.cluster.local
+  port: 5432
+
+# OAuth (optional)
+oauth:
+  enabled: false
+  google:
+    clientId: ""
+    clientSecret: ""

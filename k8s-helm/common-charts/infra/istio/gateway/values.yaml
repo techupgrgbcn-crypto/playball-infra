@@ -1,0 +1,11 @@
+# Shared Gateway for *.goormgb.space
+# istio-ingressgateway는 istioctl로 설치됨
+# 이 차트는 Gateway CRD만 생성
+
+sharedGateway:
+  enabled: false
+  name: goormgb-gateway
+  tls:
+    credentialName: goormgb-tls
+  hosts:
+    - "*.goormgb.space"

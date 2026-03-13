@@ -1,0 +1,106 @@
+# EKS Staging - Istio 설정 (Helm values)
+# Domain: staging.playball.one
+# Components: istio-base, istiod, istio-gateway, kiali
+
+# ===== Istio Base =====
+base:
+  global:
+    istioNamespace: istio-system
+
+# ===== Istiod =====
+istiod:
+  global:
+    istioNamespace: istio-system
+
+    # Sidecar Proxy 기본 리소스 설정
+    proxy:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+
+  meshConfig:
+    enableTracing: true
+    defaultConfig:
+      tracing:
+        sampling: 50 # 50% 샘플링 (staging 환경)
+        zipkin:
+          address: "tempo.monitoring.svc.cluster.local:9411"
+
+    # Access logging
+    accessLogFile: /dev/stdout
+
+  pilot:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 3
+
+# ===== Shared Gateway =====
+# 공용 Gateway (인프라 서비스용)
+sharedGateway:
+  enabled: true
+  name: goormgb-gateway
+  tls:
+    # AWS ACM 인증서 사용 (CloudFront에서 TLS 종료)
+    # Gateway에서는 HTTP로 수신
+    mode: SIMPLE
+    credentialName: ""  # ACM 사용시 불필요
+  hosts:
+    - "argocd.staging.playball.one"
+    - "grafana.staging.playball.one"
+    - "kiali.staging.playball.one"
+    - "swagger.staging.playball.one"
+
+# ===== Kiali =====
+kiali-server:
+  server:
+    web_fqdn: kiali.staging.playball.one
+    web_port: 443
+    web_schema: https
+
+  auth:
+    strategy: anonymous  # CloudFront + ACM 뒤에서 동작
+
+  deployment:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  external_services:
+    prometheus:
+      url: "http://prom-prometheus.monitoring.svc.cluster.local:9090"
+
+    grafana:
+      enabled: true
+      in_cluster_url: "http://grafana.monitoring.svc.cluster.local:80"
+      url: "https://grafana.staging.playball.one"
+
+    tracing:
+      enabled: true
+      provider: tempo
+      in_cluster_url: "http://tempo.monitoring.svc.cluster.local:3100"
+      use_grpc: false
+
+# Kiali VirtualService (공용 Gateway 사용)
+kialiVirtualService:
+  enabled: true
+  host: "kiali.staging.playball.one"
+
+# Kiali OIDC - 비활성화 (CloudFront 뒤에서 동작)
+oidc:
+  enabled: false

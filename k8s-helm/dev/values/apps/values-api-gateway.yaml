@@ -1,0 +1,114 @@
+# api-gateway - Dev 환경
+# ECR: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/dev/goormgb/api-gateway
+
+# Java Cloud Gateway (Spring Cloud Gateway)
+fullnameOverride: "java-cloud-gateway"
+
+replicaCount: 1
+
+image:
+  repository: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/dev/goormgb/api-gateway
+  tag: "32c4283"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: ecr-pull-secret
+
+# Worker 노드에 배치
+nodeSelector:
+  kubernetes.io/hostname: worker-node-1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Istio - 공통 Gateway(istio-system/api-gateway) 사용
+istio:
+  sidecar: true
+  gateway:
+    enabled: true
+    externalRef: "istio-system/api-gateway"  # 외부 Gateway 참조 (Gateway CRD 생성 안 함)
+    host: "api.dev.goormgb.space"
+  # CORS 설정 - Istio VirtualService 레벨
+  cors:
+    enabled: true
+    allowOrigins:
+      - "https://dev.goormgb.space"
+      - "http://localhost:3000"
+    allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - OPTIONS
+    allowHeaders:
+      - "*"
+    allowCredentials: true
+    maxAge: "24h"
+
+# Service
+servicePort: &port 8085
+service:
+  type: ClusterIP
+  port: *port
+
+# Environment variables - 백엔드 서비스 URL
+env:
+  - name: ALLOWED_ORIGINS
+    value: "https://dev.goormgb.space,http://localhost:3000"
+  - name: AUTH_GUARD_URL
+    value: "http://dev-auth-guard.dev-webs.svc.cluster.local:8080"
+  - name: QUEUE_URL
+    value: "http://dev-queue.dev-webs.svc.cluster.local:8081"
+  - name: SEAT_URL
+    value: "http://dev-seat.dev-webs.svc.cluster.local:8082"
+  - name: ORDER_CORE_URL
+    value: "http://dev-order-core.dev-webs.svc.cluster.local:8083"
+  - name: RECOMMENDATION_URL
+    value: "http://dev-recommendation.dev-webs.svc.cluster.local:8084"
+  # Redis - API Gateway는 REDIS_HOST/PORT 사용
+  - name: REDIS_HOST
+    valueFrom:
+      secretKeyRef:
+        name: service-config
+        key: SPRING_DATA_REDIS_HOST
+  - name: REDIS_PORT
+    valueFrom:
+      secretKeyRef:
+        name: service-config
+        key: SPRING_DATA_REDIS_PORT
+
+# JWT, Spring config - envFrom으로 주입
+envFrom:
+  - configMapRef:
+      name: service-config
+  - secretRef:
+      name: service-config
+
+# Health checks (Gateway는 context-path 없음)
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: *port
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: *port
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  failureThreshold: 3
+
+# OpenTelemetry Java Agent
+otel:
+  enabled: true
+  agentVersion: "2.11.0"
+  collectorEndpoint: "http://otel-collector.monitoring.svc.cluster.local:4317"

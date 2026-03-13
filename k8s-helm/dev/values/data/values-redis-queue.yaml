@@ -1,0 +1,49 @@
+# Redis Queue - 대기열 전용
+# 서비스명: redis-queue.data.svc.cluster.local
+
+image:
+  repository: redis
+  tag: "7-alpine"
+  pullPolicy: IfNotPresent
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 5Gi  # 대기열은 더 큰 용량
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi  # 대기열은 더 많은 메모리
+
+service:
+  port: 6379
+
+exporter:
+  enabled: true
+
+config:
+  maxmemory: 400mb
+  maxmemoryPolicy: noeviction  # 메모리 부족 시 에러 (데이터 보존)
+  appendonly: "yes"            # AOF 활성화 (데이터 영속성)
+
+backup:
+  enabled: false  # TODO: 필요시 활성화
+
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 5
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5

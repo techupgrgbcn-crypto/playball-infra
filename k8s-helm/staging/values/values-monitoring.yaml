@@ -1,0 +1,412 @@
+# EKS Staging - Monitoring Stack Configuration
+# Domain: staging.playball.one
+# Components: Prometheus, Grafana, Loki, Tempo
+#
+# ============================================================
+# dev vs EKS 차이점:
+# ------------------------------------------------------------
+# [제거됨 - EKS 불필요]
+# - nodeSelector/tolerations (kubeadm Control Plane 노드 배치용)
+# - kubeControllerManager/kubeScheduler/kubeEtcd 모니터링 (kubeadm 전용)
+# - etcd-client-cert secret 마운트 (kubeadm 전용)
+# - endpoints 설정 (kubeadm 전용)
+#
+# [변경됨 - EKS 환경]
+# - 도메인: goormgb.space -> staging.playball.one
+# - 리소스: 스케일 업 (EKS 환경에 맞게)
+# - retention: 7일로 증가
+# ============================================================
+
+# Grafana ESO 설정
+grafana:
+  eso:
+    enabled: true
+    secretManagerKey: staging/monitoring/grafana
+    oauthSecretManagerKey: staging/infra/oauth/google
+
+# ===== Prometheus Stack =====
+kube-prometheus-stack:
+  fullnameOverride: prom
+  cleanPrometheusOperatorObjectNames: true
+
+  # Admission webhook 비활성화 (TLS 인증서 문제 방지)
+  prometheusOperator:
+    admissionWebhooks:
+      enabled: false
+    tls:
+      enabled: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # kube-state-metrics
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # EKS: kubeadm 전용 컴포넌트 모니터링 비활성화
+  kubeControllerManager:
+    enabled: false  # EKS managed
+  kubeScheduler:
+    enabled: false  # EKS managed
+  kubeEtcd:
+    enabled: false  # EKS managed
+  kubeProxy:
+    enabled: true
+
+  prometheus:
+    prometheusSpec:
+      # 모든 namespace 메트릭 수집
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+
+      # OTel Collector에서 메트릭 수신 (remote write)
+      enableRemoteWriteReceiver: true
+
+      # EKS: etcd secret 불필요
+      # secrets: []
+
+      retention: 7d
+      retentionSize: "20GB"
+
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: 1000m
+          memory: 3Gi
+
+      storageSpec:
+        volumeClaimTemplate:
+          metadata:
+            name: data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 30Gi
+
+  grafana:
+    fullnameOverride: grafana
+
+    # 대시보드 폴더 설정 (sidecar 방식)
+    sidecar:
+      dashboards:
+        enabled: true
+        folder: /tmp/dashboards
+        folderAnnotation: grafana_folder
+        searchNamespace: monitoring
+        provider:
+          foldersFromFilesStructure: true
+          allowUiUpdates: true
+
+    # kube-prometheus-stack 기본 대시보드 비활성화
+    defaultDashboardsEnabled: false
+    forceDeployDashboards: false
+    defaultDashboardsTimezone: utc
+
+    # 대시보드 프로바이더 설정
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: "dev-team-observability-templates"
+            orgId: 1
+            folder: "Dev Team - Templates"
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/dev-team-observability-templates
+
+          - name: "infra-team-observability-templates"
+            orgId: 1
+            folder: "Infra Team - Templates"
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/infra-team-observability-templates
+
+    # Grafana.com 대시보드
+    dashboards:
+      dev-team-observability-templates:
+        service-pod-health:
+          gnetId: 17125
+          revision: 1
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+        service-traffic-istio:
+          gnetId: 7636
+          revision: 1
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+        service-workload-istio:
+          gnetId: 7630
+          revision: 1
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+      infra-team-observability-templates:
+        platform-node-capacity:
+          gnetId: 1860
+          revision: 37
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+        platform-cluster-overview:
+          gnetId: 7249
+          revision: 1
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+        platform-network-overview:
+          gnetId: 14314
+          revision: 2
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+        platform-prometheus-overview:
+          gnetId: 19105
+          revision: 3
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+        platform-istio-mesh:
+          gnetId: 7639
+          revision: 1
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+        platform-istio-control-plane:
+          gnetId: 7645
+          revision: 1
+          datasource:
+            - name: DS_PROMETHEUS
+              value: Prometheus
+
+    # ESO에서 생성한 secret 사용
+    admin:
+      existingSecret: grafana-admin-credentials
+      userKey: admin-user
+      passwordKey: admin-password
+
+    # Google OAuth 설정
+    envFromSecret: google-oauth-credentials
+
+    grafana.ini:
+      server:
+        root_url: https://grafana.staging.playball.one
+      # Alerting 비활성화
+      unified_alerting:
+        enabled: false
+      alerting:
+        enabled: false
+      auth.google:
+        enabled: true
+        allow_sign_up: true
+        auto_login: false
+        scopes: openid email profile
+        allow_assign_grafana_admin: true
+        skip_org_role_sync: false
+        auth_url: https://accounts.google.com/o/oauth2/auth
+        token_url: https://oauth2.googleapis.com/token
+        api_url: https://openidconnect.googleapis.com/v1/userinfo
+        # 이메일 기반 역할 할당
+        # Admin: DevOps, Editor: Developers, Viewer: 기타 허용된 멤버
+        role_attribute_path: >-
+          contains(['admin@example.com', 'admin2@example.com', 'admin3@example.com'], email) && 'Admin' ||
+          contains(['editor1@example.com', 'editor2@example.com', 'editor3@example.com', 'editor4@example.com', 'editor6@example.com', 'editor5@example.com'], email) && 'Editor' ||
+          contains(['viewer1@example.com', 'viewer2@example.com', 'viewer3@example.com', 'viewer4@example.com', 'viewer5@example.com', 'viewer6@example.com', 'viewer7@example.com', 'viewer8@example.com'], email) && 'Viewer' ||
+          ''
+      users:
+        auto_assign_org: true
+        auto_assign_org_role: Viewer
+      auth:
+        disable_login_form: false
+
+    persistence:
+      enabled: true
+      size: 5Gi
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    # Loki + Tempo datasource
+    additionalDataSources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        isDefault: false
+        jsonData:
+          maxLines: 1000
+
+      - name: Tempo
+        type: tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3100
+        isDefault: false
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: "-1h"
+            spanEndTimeShift: "1h"
+            filterByTraceID: true
+            filterBySpanID: true
+
+  alertmanager:
+    alertmanagerSpec:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+
+# Grafana Gateway
+gateway:
+  grafana:
+    enabled: true
+    host: "grafana.staging.playball.one"
+    # EKS: TLS는 CloudFront + ACM에서 처리
+
+# ===== Loki =====
+loki:
+  deploymentMode: SingleBinary
+
+  loki:
+    auth_enabled: false
+
+    limits_config:
+      retention_period: 168h  # 7일
+      allow_structured_metadata: true
+
+    storage:
+      type: filesystem
+
+    commonConfig:
+      replication_factor: 1
+
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+
+  singleBinary:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    persistence:
+      enabled: true
+      size: 20Gi
+
+  # 불필요한 컴포넌트 비활성화 (SingleBinary 모드)
+  backend:
+    replicas: 0
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  gateway:
+    enabled: false
+  test:
+    enabled: false
+  lokiCanary:
+    enabled: false
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+  minio:
+    enabled: false
+
+# ===== Promtail =====
+promtail:
+  config:
+    clients:
+      - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+    snippets:
+      pipelineStages:
+        - cri: {}
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ===== Logs Backup to S3 =====
+backup:
+  enabled: true
+  schedule: "0 4 * * *"  # 매일 오전 4시 (UTC)
+  s3Bucket: goormgb-backup
+  s3Prefix: staging/logs
+  externalSecret:
+    remoteRef: staging/infra/s3-backup
+
+# ===== Tempo =====
+tempo:
+  tempo:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    retention: 168h  # 7일
+
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+        wal:
+          path: /var/tempo/wal
+        block:
+          bloom_filter_false_positive: 0.05
+
+  persistence:
+    enabled: true
+    size: 20Gi

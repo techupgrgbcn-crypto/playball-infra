@@ -1,0 +1,37 @@
+# RedisInsight defaults
+replicaCount: 1
+
+image:
+  repository: redis/redisinsight
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5540
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+
+nodeSelector: {}
+tolerations: []
+
+# Istio VirtualService
+virtualService:
+  enabled: false
+  host: ""
+  gateway: "istio-system/goormgb-gateway"
+
+# Redis connections (configure in RedisInsight UI)
+# redis-cache: redis-cache.data.svc.cluster.local:6379
+# redis-queue: redis-queue.data.svc.cluster.local:6379

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: rbac
+description: RBAC roles and bindings for k8s cluster
+type: application
+version: 1.0.0

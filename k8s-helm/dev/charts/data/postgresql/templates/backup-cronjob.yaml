@@ -1,0 +1,94 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgresql-3h-backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"  # CronJob은 sidecar 제외 (안 끝남)
+        spec:
+          restartPolicy: OnFailure
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgresql-credentials
+                      key: POSTGRES_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgresql-credentials
+                      key: POSTGRES_PASSWORD
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgresql-backup-s3
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgresql-backup-s3
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_DEFAULT_REGION
+                  value: ap-northeast-2
+                - name: S3_BUCKET
+                  value: {{ .Values.backup.s3Bucket }}
+                - name: S3_PREFIX
+                  value: {{ .Values.backup.s3Prefix }}
+                # Database names passed as environment variable to prevent shell injection
+                - name: DATABASES
+                  value: {{ .Values.databases | join "," | quote }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache aws-cli
+
+                  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+                  BACKUP_FILE="backup-${TIMESTAMP}.sql.gz"
+
+                  echo "=== PostgreSQL Backup ==="
+
+                  # Validate and iterate over databases safely (POSIX compatible)
+                  echo "$DATABASES" | tr ',' '\n' | while read db; do
+                    # Skip empty lines
+                    [ -z "$db" ] && continue
+                    # Validate database name (alphanumeric, underscore, hyphen only)
+                    if ! echo "$db" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+                      echo "ERROR: Invalid database name: $db"
+                      exit 1
+                    fi
+                    echo "Backing up $db..."
+                    pg_dump -h postgresql -U "$POSTGRES_USER" -d "$db" | gzip > "/tmp/${db}-${TIMESTAMP}.sql.gz"
+                    aws s3 cp "/tmp/${db}-${TIMESTAMP}.sql.gz" "s3://${S3_BUCKET}/${S3_PREFIX}/${db}/${BACKUP_FILE}"
+                  done
+
+                  echo "Backup complete!"
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+{{- end }}

@@ -1,0 +1,496 @@
+# Istio Security - WAF-like protection
+# EnvoyFilter + Lua 기반 SQL Injection, XSS 탐지
+
+enabled: true
+
+# 적용 대상
+selector:
+  labels:
+    istio: ingressgateway
+
+# 차단 모드 설정
+mode: block  # block | detect (detect는 로그만, 차단 안 함)
+
+# 로깅 설정
+logging:
+  enabled: true
+  # 로그 레벨: info, warn, error
+  level: warn
+
+# 탐지 패턴 (Lua pattern matching)
+patterns:
+  sqlInjection:
+    enabled: true
+    rules:
+      - name: "sql-quotes"
+        pattern: "['\";].*['\";]"
+        description: "Multiple quotes detected"
+      - name: "sql-union"
+        pattern: "[Uu][Nn][Ii][Oo][Nn]%s+[Ss][Ee][Ll][Ee][Cc][Tt]"
+        description: "UNION SELECT statement"
+      - name: "sql-select-from"
+        pattern: "[Ss][Ee][Ll][Ee][Cc][Tt]%s+.-%s+[Ff][Rr][Oo][Mm]"
+        description: "SELECT FROM statement"
+      - name: "sql-drop"
+        pattern: "[Dd][Rr][Oo][Pp]%s+[Tt][Aa][Bb][Ll][Ee]"
+        description: "DROP TABLE statement"
+      - name: "sql-delete"
+        pattern: "[Dd][Ee][Ll][Ee][Tt][Ee]%s+[Ff][Rr][Oo][Mm]"
+        description: "DELETE FROM statement"
+      - name: "sql-insert"
+        pattern: "[Ii][Nn][Ss][Ee][Rr][Tt]%s+[Ii][Nn][Tt][Oo]"
+        description: "INSERT INTO statement"
+      - name: "sql-update-set"
+        pattern: "[Uu][Pp][Dd][Aa][Tt][Ee]%s+.-%s+[Ss][Ee][Tt]"
+        description: "UPDATE SET statement"
+      - name: "sql-comment"
+        pattern: "%-%-"
+        description: "SQL comment"
+      - name: "sql-or-bypass"
+        pattern: "[Oo][Rr]%s+['\"]?1['\"]?%s*=%s*['\"]?1"
+        description: "OR 1=1 bypass"
+
+  xss:
+    enabled: true
+    rules:
+      - name: "xss-script-tag"
+        pattern: "<[Ss][Cc][Rr][Ii][Pp][Tt]"
+        description: "Script tag detected"
+      - name: "xss-javascript"
+        pattern: "[Jj][Aa][Vv][Aa][Ss][Cc][Rr][Ii][Pp][Tt]:"
+        description: "javascript: protocol"
+      - name: "xss-onerror"
+        pattern: "[Oo][Nn][Ee][Rr][Rr][Oo][Rr]%s*="
+        description: "onerror event handler"
+      - name: "xss-onload"
+        pattern: "[Oo][Nn][Ll][Oo][Aa][Dd]%s*="
+        description: "onload event handler"
+      - name: "xss-onclick"
+        pattern: "[Oo][Nn][Cc][Ll][Ii][Cc][Kk]%s*="
+        description: "onclick event handler"
+      - name: "xss-img-tag"
+        pattern: "<[Ii][Mm][Gg][^>]+[Oo][Nn]"
+        description: "img tag with event handler"
+      - name: "xss-iframe"
+        pattern: "<[Ii][Ff][Rr][Aa][Mm][Ee]"
+        description: "iframe tag"
+      - name: "xss-eval"
+        pattern: "[Ee][Vv][Aa][Ll]%s*%("
+        description: "eval() function"
+
+  pathTraversal:
+    enabled: true
+    rules:
+      - name: "path-traversal-dots"
+        pattern: "%.%./"
+        description: "Directory traversal attempt (../)"
+      - name: "path-traversal-triple-dots"
+        pattern: "%.%.%./"
+        description: "Deep directory traversal attempt (..../)"
+      - name: "path-traversal-encoded"
+        pattern: "%%2[eE]%%2[eE]"
+        description: "Encoded directory traversal (%2e%2e)"
+      - name: "path-traversal-encoded-slash"
+        pattern: "%%2[eE]%%2[eE]%%2[fF]"
+        description: "Fully encoded directory traversal (%2e%2e%2f)"
+      - name: "path-traversal-backslash"
+        pattern: "%.%.%\\"
+        description: "Backslash directory traversal (..\\)"
+      - name: "path-traversal-mixed"
+        pattern: "%.%.%%2[fF]"
+        description: "Mixed encoding directory traversal (..%2f)"
+
+  commandInjection:
+    enabled: true
+    rules:
+      - name: "cmd-semicolon"
+        pattern: ";%s*[a-zA-Z]"
+        description: "Semicolon command chain"
+      - name: "cmd-pipe"
+        pattern: "|%s*[a-zA-Z]"
+        description: "Pipe command"
+      - name: "cmd-backtick"
+        pattern: "`[^`]+`"
+        description: "Backtick execution"
+      - name: "cmd-dollar-paren"
+        pattern: "%$%([^%)]+%)"
+        description: "Dollar-paren execution"
+      - name: "cmd-ampersand"
+        pattern: "&&%s*[a-zA-Z]"
+        description: "Ampersand command chain"
+      - name: "cmd-common"
+        pattern: "[;|]%s*[rwx]?[mckla][atd]%s"
+        description: "Common dangerous commands (rm, cat, etc)"
+
+  ldapInjection:
+    enabled: true
+    rules:
+      - name: "ldap-wildcard"
+        pattern: "%*%)%("
+        description: "LDAP wildcard injection"
+      - name: "ldap-null"
+        pattern: "%%00"
+        description: "LDAP null byte"
+      - name: "ldap-filter"
+        pattern: "%)%([a-zA-Z]+="
+        description: "LDAP filter manipulation"
+
+  xxeInjection:
+    enabled: true
+    rules:
+      - name: "xxe-entity"
+        pattern: "<!%s*[Ee][Nn][Tt][Ii][Tt][Yy]"
+        description: "XML ENTITY declaration"
+      - name: "xxe-system"
+        pattern: "[Ss][Yy][Ss][Tt][Ee][Mm]%s+[\"']"
+        description: "XML SYSTEM keyword"
+      - name: "xxe-doctype"
+        pattern: "<!%s*[Dd][Oo][Cc][Tt][Yy][Pp][Ee]"
+        description: "XML DOCTYPE declaration"
+
+  ssrf:
+    enabled: true
+    rules:
+      - name: "ssrf-aws-metadata"
+        pattern: "169%.254%.169%.254"
+        description: "AWS metadata endpoint"
+      - name: "ssrf-localhost"
+        pattern: "127%.0%.0%.1"
+        description: "Localhost access"
+      - name: "ssrf-internal-ip"
+        pattern: "10%.%d+%.%d+%.%d+"
+        description: "Internal IP (10.x.x.x)"
+      - name: "ssrf-internal-172"
+        pattern: "172%.%d+%.%d+%.%d+"
+        description: "Internal IP (172.x.x.x)"
+      - name: "ssrf-internal-192"
+        pattern: "192%.168%.%d+%.%d+"
+        description: "Internal IP (192.168.x.x)"
+      - name: "ssrf-gcp-metadata"
+        pattern: "metadata%.google%.internal"
+        description: "GCP metadata endpoint"
+
+  log4shell:
+    enabled: true
+    rules:
+      - name: "log4j-jndi"
+        pattern: "%$%{[jJ][nN][dD][iI]:"
+        description: "Log4j JNDI lookup"
+      - name: "log4j-lower"
+        pattern: "%$%{[lL][oO][wW][eE][rR]:"
+        description: "Log4j lower lookup"
+      - name: "log4j-upper"
+        pattern: "%$%{[uU][pP][pP][eE][rR]:"
+        description: "Log4j upper lookup"
+      - name: "log4j-env"
+        pattern: "%$%{[eE][nN][vV]:"
+        description: "Log4j env lookup"
+
+  headerInjection:
+    enabled: true
+    rules:
+      - name: "header-crlf"
+        pattern: "%%0[dD]%%0[aA]"
+        description: "CRLF injection (encoded)"
+      - name: "header-newline"
+        pattern: "\\r\\n"
+        description: "CRLF injection (escaped)"
+
+  botScanner:
+    enabled: true
+    rules:
+      - name: "bot-sqlmap"
+        pattern: "[Ss][Qq][Ll][Mm][Aa][Pp]"
+        description: "SQLMap scanner"
+      - name: "bot-nikto"
+        pattern: "[Nn][Ii][Kk][Tt][Oo]"
+        description: "Nikto scanner"
+      - name: "bot-nmap"
+        pattern: "[Nn][Mm][Aa][Pp]"
+        description: "Nmap scanner"
+      - name: "bot-masscan"
+        pattern: "[Mm][Aa][Ss][Ss][Cc][Aa][Nn]"
+        description: "Masscan scanner"
+      - name: "bot-dirbuster"
+        pattern: "[Dd][Ii][Rr][Bb][Uu][Ss][Tt][Ee][Rr]"
+        description: "DirBuster scanner"
+      - name: "bot-gobuster"
+        pattern: "[Gg][Oo][Bb][Uu][Ss][Tt][Ee][Rr]"
+        description: "GoBuster scanner"
+      - name: "bot-burp"
+        pattern: "[Bb][Uu][Rr][Pp]"
+        description: "Burp Suite"
+
+# 제외 경로 (이 경로는 검사 안 함)
+# ---------------------------------------------------------
+# 동작 방식:
+#   Lua 코드의 is_excluded_path() 함수에서 string.find()로 검사
+#   경로(path)에 아래 문자열이 "포함"되어 있으면 WAF 검사를 건너뜀
+#   (부분 문자열 매칭 - prefix/suffix 아님)
+#
+# 예시:
+#   "/explore" 설정 시 → /explore, /grafana/explore, /explore?query=... 모두 제외됨
+#   "/assets/" 설정 시 → /assets/*, /grafana/assets/* 모두 제외됨
+# ---------------------------------------------------------
+excludePaths:
+  # === 헬스체크 엔드포인트 ===
+  # k8s liveness/readiness probe, 로드밸런서 헬스체크
+  - "/health"
+  - "/healthz"
+  - "/ready"
+  - "/readyz"
+  - "/actuator/health"
+
+  # === 메트릭 수집 ===
+  # Prometheus scrape 요청
+  - "/metrics"
+
+  # === Grafana 오탐 방지 ===
+  # 아래 경로들은 정상적인 Grafana 사용 시 WAF 규칙에 오탐(false positive)됨
+  #
+  # 1. /explore - Grafana Explore 기능
+  #    - 쿼리 문자열에 LogQL/PromQL 표현식 포함 (따옴표, SQL 키워드 등)
+  #    - 예: /explore?left=["now-1h","now","Loki",{"expr":"{app=\"test\"}"}]
+  #    - sql-quotes 규칙에 탐지됨 (Multiple quotes detected)
+  #
+  # 2. /assets/ - 정적 파일 (JS, CSS, 이미지 등)
+  #    - 파일명에 '--' 또는 특수문자 포함 가능
+  #    - 예: /assets/app--dark--3a2b1c.js
+  #    - sql-comment 규칙에 탐지됨 (-- 패턴)
+  #
+  # 3. /api/ds/query - Grafana 데이터소스 쿼리 API
+  #    - 백엔드에서 Prometheus/Loki 쿼리 실행
+  #    - 쿼리 본문에 PromQL/LogQL 표현식 포함
+  - "/explore"
+  - "/assets/"
+  - "/api/ds/query"
+
+# 응답 설정
+response:
+  statusCode: 403
+  body: "Forbidden: Security violation detected"
+
+# 내부 경로 차단 (AuthorizationPolicy)
+# 외부에서 접근하면 안 되는 경로들
+denyPaths:
+  enabled: false
+  paths: []
+  # 예시:
+  # - "/api/prometheus*"
+  # - "/actuator/prometheus*"
+  # - "/metrics*"
+  # - "*/metrics"
+
+# ============================================================
+# Rate Limiting 설정
+# ============================================================
+# Local Rate Limit: Pod별 개별 카운트 (1차 방어선, Redis 불필요)
+# Global Rate Limit: Redis 기반 분산 카운팅 (정밀 제어)
+# ============================================================
+
+rateLimiting:
+  # --- Local Rate Limit (Envoy 내장) ---
+  local:
+    enabled: true
+
+    # 기본 설정 (전체 경로에 적용)
+    default:
+      enabled: true
+      # 토큰 버킷 설정
+      tokensPerFill: 100        # 리필 시 추가되는 토큰 수
+      fillInterval: 1s          # 리필 간격
+      maxTokens: 100            # 버킷 최대 토큰 수
+      # 결과: 초당 100 요청 허용
+
+    # IP별 제한 (X-Forwarded-For 기반)
+    perClient:
+      enabled: true
+      tokensPerFill: 50         # IP당 초당 50 요청
+      fillInterval: 1s
+      maxTokens: 100            # 버스트 허용 (최대 100)
+
+    # 경로별 제한 (민감한 API)
+    perRoute:
+      enabled: true
+      routes:
+        # 로그인 API - Brute Force 방지
+        - path: "/auth/"
+          tokensPerFill: 10       # 초당 10 요청
+          fillInterval: 1s
+          maxTokens: 20
+
+        # 결제 API - 더 엄격하게
+        - path: "/payment/"
+          tokensPerFill: 5
+          fillInterval: 1s
+          maxTokens: 10
+
+        # 회원가입 - 스팸 방지
+        - path: "/signup"
+          tokensPerFill: 3
+          fillInterval: 1s
+          maxTokens: 5
+
+    # Rate Limit 응답 설정
+    response:
+      statusCode: 429
+      body: "Too Many Requests"
+      headers:
+        - name: "Retry-After"
+          value: "60"
+        - name: "X-RateLimit-Limit"
+          value: "100"
+
+    # 로깅 설정
+    logging:
+      enabled: true
+      # 제한 걸린 요청만 로깅 (true) / 모든 요청 로깅 (false)
+      onlyLimited: true
+
+  # --- Global Rate Limit (Redis 기반) ---
+  global:
+    enabled: false    # Redis 설정 후 true로 변경
+
+    # Redis 설정
+    redis:
+      # 내부 Redis 사용 (이 차트에서 배포)
+      internal: true
+      # 외부 Redis 사용 시
+      # internal: false
+      # host: "redis.redis-system.svc.cluster.local"
+      # port: 6379
+
+    # Rate Limit 서비스 설정
+    service:
+      replicas: 2
+      image: envoyproxy/ratelimit:latest
+
+    # 도메인별 설정
+    domain: "goormgb-ratelimit"
+
+    # Rate Limit 규칙
+    descriptors:
+      # IP별 전역 제한
+      - key: remote_address
+        rateLimit:
+          requestsPerUnit: 1000
+          unit: minute
+
+      # 경로 + IP 조합
+      - key: path
+        value: "/api/auth"
+        descriptors:
+          - key: remote_address
+            rateLimit:
+              requestsPerUnit: 60
+              unit: minute
+
+      # 특정 IP 화이트리스트 (무제한)
+      - key: remote_address
+        value: "10.0.0.0/8"
+        rateLimit:
+          unlimited: true
+
+  # 제외 경로 (Rate Limit 적용 안 함)
+  excludePaths:
+    - "/health"
+    - "/healthz"
+    - "/ready"
+    - "/metrics"
+    - "/actuator/health"
+
+# ============================================================
+# JWT 인증 설정 (Istio RequestAuthentication)
+# ============================================================
+# Istio에서 JWT 서명/만료만 빠르게 검증 (1차 필터)
+# 복잡한 권한 체크는 Java Gateway에서 처리
+# ============================================================
+
+jwtAuth:
+  enabled: true
+
+  # JWT 발급자 설정
+  issuers:
+    # Kakao OAuth (메인 인증)
+    - name: kakao
+      issuer: "https://kauth.kakao.com"
+      jwksUri: "https://kauth.kakao.com/.well-known/jwks.json"
+      # 토큰 위치 (기본: Authorization: Bearer)
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+      # audiences: []  # 선택적: 특정 audience만 허용
+
+    # 자체 Auth 서비스 (내부 토큰)
+    - name: goormgb-auth
+      issuer: "https://auth.goormgb.com"
+      # JWKS URI - auth-guard 서비스에서 제공 (Istio mTLS로 암호화됨)
+      jwksUri: "http://auth-guard.dev-webs.svc.cluster.local:8080/.well-known/jwks.json"
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+
+  # 토큰 원본을 백엔드로 전달 (Gateway에서 파싱 필요)
+  forwardOriginalToken: true
+
+  # ============================================================
+  # 중요: 공개 경로 설정 (JWT 없이 접근 가능)
+  # 이 경로들은 토큰 없이도 401 안 남!
+  # ============================================================
+  publicPaths:
+    # --- 인증 관련 (당연히 토큰 없이 접근) ---
+    - "/auth/*"                    # 로그인, 토큰 발급 등
+    - "/oauth/*"                   # OAuth 콜백
+    - "/login"
+    - "/signup"
+    - "/api/auth/*"
+
+    # --- 헬스체크 (k8s, 로드밸런서) ---
+    - "/health"
+    - "/healthz"
+    - "/ready"
+    - "/readyz"
+    - "/actuator/health"
+    - "/actuator/info"
+
+    # --- 메트릭 (Prometheus) ---
+    - "/metrics"
+    - "/actuator/prometheus"
+
+    # --- 공개 API (비로그인 사용자도 접근) ---
+    - "/api/public/*"              # 명시적 공개 API
+    - "/order/clubs"               # 골프장 목록 조회 (공개)
+    - "/order/clubs/*/info"        # 골프장 상세 정보 (공개)
+    - "/order/matches"             # 매치 목록 (공개)
+
+    # --- 정적 리소스 ---
+    - "/static/*"
+    - "/assets/*"
+    - "/favicon.ico"
+    - "/robots.txt"
+
+    # --- Swagger/API 문서 ---
+    - "/swagger-ui/*"
+    - "/v3/api-docs/*"
+    - "/api-docs/*"
+
+    # --- Grafana (별도 인증 사용) ---
+    - "/grafana/*"
+
+  # ============================================================
+  # 인증 필수 경로 (이 경로는 반드시 JWT 필요)
+  # publicPaths보다 우선순위 높음
+  # ============================================================
+  protectedPaths:
+    - "/api/user/*"                # 사용자 정보
+    - "/api/booking/*"             # 예약
+    - "/api/payment/*"             # 결제
+    - "/order/reservations/*"      # 예약 관리
+    - "/order/my/*"                # 내 정보
+
+  # 인증 실패 시 응답
+  unauthorizedResponse:
+    # Istio 기본 동작: 401 Unauthorized 반환
+    # 커스텀 메시지는 AuthorizationPolicy에서 설정 불가
+    # (필요 시 Lua 필터로 커스터마이징)
+    enabled: true

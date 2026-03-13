@@ -1,0 +1,31 @@
+{{- if .Values.kialiVirtualService.enabled }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: kiali-vs
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+    - {{ .Values.kialiVirtualService.host | quote }}
+  gateways:
+    - istio-system/goormgb-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /kiali
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,503,reset
+      route:
+        - destination:
+            host: kiali
+            port:
+              number: 20001
+    # Root redirect to /kiali
+    - match:
+        - uri:
+            exact: /
+      redirect:
+        uri: /kiali
+{{- end }}

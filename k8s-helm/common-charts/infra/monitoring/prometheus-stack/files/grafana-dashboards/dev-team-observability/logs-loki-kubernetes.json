@@ -1,0 +1,320 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Logs collected from Kubernetes, stored in Loki",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Loki",
+      "description": "시간대별 로그 발생 건수입니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": "Loki",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", stream=~\"$stream\", container=~\"$container\", instance=~\"$service\"} |= \"$query\" [$__interval]))",
+          "instant": false,
+          "legendFormat": "Log count",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "로그 건수 추이",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Loki",
+      "description": "Logs from services running in Kubernetes",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 25,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 2,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": "Loki",
+          "editorMode": "code",
+          "expr": "{namespace=~\"$namespace\", stream=~\"$stream\", container=~\"$container\", instance=~\"$service\"} |= \"$query\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "로그 스트림",
+      "type": "logs"
+    }
+  ],
+  "preload": false,
+  "refresh": "1m",
+  "schemaVersion": 40,
+  "tags": [
+    "logs",
+    "loki",
+    "k8s"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "description": "검색어 (ERROR, WARN 등 로그 레벨 포함)",
+        "label": "검색어",
+        "name": "query",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "dev-webs",
+          "value": "dev-webs"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "namespace",
+        "options": [
+          {
+            "selected": true,
+            "text": "dev-webs",
+            "value": "dev-webs"
+          }
+        ],
+        "query": "dev-webs",
+        "type": "custom"
+      },
+      {
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 2,
+        "includeAll": true,
+        "multi": true,
+        "name": "stream",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "stdout",
+            "value": "stdout"
+          },
+          {
+            "selected": false,
+            "text": "stderr",
+            "value": "stderr"
+          }
+        ],
+        "query": "stdout,stderr",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "java-service",
+          "value": "java-service"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "label": "컨테이너",
+        "multi": false,
+        "name": "container",
+        "options": [
+          {
+            "selected": true,
+            "text": "java-service",
+            "value": "java-service"
+          }
+        ],
+        "query": "java-service",
+        "type": "custom"
+      },
+      {
+        "allValue": "dev-.*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "서비스",
+        "multi": true,
+        "name": "service",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "dev-api-gateway",
+            "value": "dev-api-gateway"
+          },
+          {
+            "selected": false,
+            "text": "dev-auth-guard",
+            "value": "dev-auth-guard"
+          },
+          {
+            "selected": false,
+            "text": "dev-order-core",
+            "value": "dev-order-core"
+          },
+          {
+            "selected": false,
+            "text": "dev-queue",
+            "value": "dev-queue"
+          },
+          {
+            "selected": false,
+            "text": "dev-recommendation",
+            "value": "dev-recommendation"
+          },
+          {
+            "selected": false,
+            "text": "dev-seat",
+            "value": "dev-seat"
+          }
+        ],
+        "query": "dev-api-gateway,dev-auth-guard,dev-order-core,dev-queue,dev-recommendation,dev-seat",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "로그 확인(Loki Kubernetes Logs)",
+  "uid": "cfevec81ezw8wc",
+  "version": 12,
+  "weekStart": ""
+}

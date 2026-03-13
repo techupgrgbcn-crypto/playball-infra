@@ -1,0 +1,19 @@
+{{- if and .Values.enabled .Values.denyPaths.enabled }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-internal-paths
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  action: DENY
+  rules:
+    - to:
+        - operation:
+            paths:
+              {{- range .Values.denyPaths.paths }}
+              - {{ . | quote }}
+              {{- end }}
+{{- end }}

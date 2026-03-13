@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-service.fullname" . }}
+  labels:
+    {{- include "ai-service.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.portName | default "http" }}
+      protocol: TCP
+      name: {{ .Values.service.portName | default "http" }}
+  selector:
+    {{- include "ai-service.selectorLabels" . | nindent 4 }}

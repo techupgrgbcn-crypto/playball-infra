@@ -1,0 +1,99 @@
+# AI 서비스 기본 설정 (Python, Go 등)
+# 환경별 override: dev/values/apps/values-<app>.yaml
+
+replicaCount: 1
+
+image:
+  repository: ""  # ECR 주소 (values에서 override)
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ecr-pull-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service
+service:
+  type: ClusterIP
+  port: 8000  # uvicorn default
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Node scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# HPA
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# Istio
+istio:
+  sidecar: true
+  gateway:
+    enabled: false
+    host: ""
+    tls:
+      enabled: true
+      credentialName: goormgb-tls
+
+# FastAPI health checks
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Graceful shutdown
+terminationGracePeriodSeconds: 30
+
+# Environment variables
+env: []
+# - name: ENVIRONMENT
+#   value: "dev"
+
+# ConfigMap/Secret references
+envFrom: []
+# - configMapRef:
+#     name: ai-config
+# - secretRef:
+#     name: ai-secrets
+
+# Prometheus Metrics
+metrics:
+  enabled: false
+  port: 9090
+  portName: metrics
+  path: /metrics
+  interval: 30s
+
+# OpenTelemetry (앱에 opentelemetry SDK 필요)
+# pip install opentelemetry-api opentelemetry-sdk opentelemetry-instrumentation-fastapi
+otel:
+  enabled: false
+  collectorEndpoint: "otel-collector.monitoring.svc.cluster.local:4317"

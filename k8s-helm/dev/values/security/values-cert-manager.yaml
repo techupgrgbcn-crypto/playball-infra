@@ -1,0 +1,25 @@
+# kubeadm-dev - cert-manager ClusterIssuer 설정
+# Domain: goormgb.space
+
+# CP 노드에 배치 (설정 관련)
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+email: "admin@example.com"
+
+cloudflare:
+  secret:
+    awsSecretKey: dev/infra/cloudflare  # DDNS와 동일한 시크릿 사용
+
+certificates:
+  - name: goormgb-tls
+    dnsNames:
+      - "*.goormgb.space"
+      - "*.dev.goormgb.space"
+      - "goormgb.space"
+    issuerRef: letsencrypt-prod # 새 도메인이라 prod 사용 가능

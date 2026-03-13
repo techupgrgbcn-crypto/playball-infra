@@ -1,0 +1,50 @@
+{{- if .Values.istio.gateway.enabled }}
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "ai-service.fullname" . }}-gateway
+  labels:
+    {{- include "ai-service.labels" . | nindent 4 }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: {{ .Values.istio.gateway.tls.credentialName }}
+      hosts:
+        - {{ .Values.istio.gateway.host | quote }}
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - {{ .Values.istio.gateway.host | quote }}
+      tls:
+        httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ include "ai-service.fullname" . }}-vs
+  labels:
+    {{- include "ai-service.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - {{ .Values.istio.gateway.host | quote }}
+  gateways:
+    - {{ include "ai-service.fullname" . }}-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: {{ include "ai-service.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}

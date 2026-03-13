@@ -1,0 +1,59 @@
+# recommendation - Dev 환경
+# ECR: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/dev/goormgb/recommendation
+
+replicaCount: 1
+
+image:
+  repository: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/dev/goormgb/recommendation
+  tag: "239ebbd"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: ecr-pull-secret
+
+# Worker 노드에 배치
+nodeSelector:
+  kubernetes.io/hostname: worker-node-1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Istio
+istio:
+  sidecar: true
+  gateway:
+    enabled: false
+
+# Service
+servicePort: &port 8084
+service:
+  type: ClusterIP
+  port: *port
+
+# Health checks (HTTP - context-path 반영)
+livenessProbe:
+  httpGet:
+    path: /recommendation/actuator/health/liveness
+    port: *port
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /recommendation/actuator/health/readiness
+    port: *port
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  failureThreshold: 3
+
+# OpenTelemetry Java Agent
+otel:
+  enabled: true
+  agentVersion: "2.11.0"
+  collectorEndpoint: "http://otel-collector.monitoring.svc.cluster.local:4317"

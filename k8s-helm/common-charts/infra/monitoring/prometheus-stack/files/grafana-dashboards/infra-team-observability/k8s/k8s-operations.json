@@ -1,0 +1,228 @@
+{
+  "annotations": { "list": [] },
+  "description": "k9s 스타일 Kubernetes 운영 대시보드입니다. 문제 상황, 리소스 현황, 파드 상태를 한눈에 파악합니다.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 100, "panels": [], "title": "주의 필요 항목 (Attention Required)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Pending 파드\n\n**즉시 조사가 필요합니다.**\n\n원인:\n- 리소스 부족 (CPU/메모리)\n- nodeSelector 불일치\n- PVC 바인딩 실패\n- Taints/Tolerations 문제\n\n**확인 명령어:**\n```bash\nkubectl get pods -A --field-selector=status.phase=Pending\nkubectl describe pod <name> -n <ns>\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 1 }, "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(kube_pod_status_phase{phase=\"Pending\"}) or vector(0)", "legendFormat": "대기 중", "refId": "A" }],
+      "title": "", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## Failed 파드\n\n**실패한 파드입니다. 즉시 조사 필요!**\n\n원인:\n- OOMKilled (메모리 초과)\n- CrashLoopBackOff (반복 크래시)\n- ImagePullBackOff (이미지 다운로드 실패)\n- Error (애플리케이션 오류)\n\n**확인 명령어:**\n```bash\nkubectl get pods -A --field-selector=status.phase=Failed\nkubectl logs <pod> -n <ns>\nkubectl logs <pod> -n <ns> --previous\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 1 }, "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(kube_pod_status_phase{phase=\"Failed\"}) or vector(0)", "legendFormat": "실패", "refId": "A" }],
+      "title": "", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## CrashLoop 파드\n\n**반복 크래시 상태입니다.**\n\nCrashLoopBackOff 의미:\n- 컨테이너가 시작 후 바로 종료\n- kubelet이 재시작 반복\n- 재시작 간격이 점점 증가 (10s → 20s → 40s → ...)\n\n**확인 명령어:**\n```bash\nkubectl get pods -A | grep CrashLoop\nkubectl describe pod <name>\nkubectl logs <pod> --previous\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 1 }, "id": 3,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_pod_container_status_waiting_reason{reason=\"CrashLoopBackOff\"}) or vector(0)", "legendFormat": "크래시루프", "refId": "A" }],
+      "title": "", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## NotReady 노드\n\n**노드 장애 상태입니다.**\n\nNotReady 원인:\n- kubelet 중지/오류\n- 네트워크 단절\n- 디스크 용량 부족 (디스크 압박, 이미지 삭제 실패)\n- CNI 플러그인 문제\n\n**확인 명령어:**\n```bash\nkubectl get nodes\nkubectl describe node <name>\njournalctl -u kubelet -f\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 1 }, "id": 4,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"false\"}) or vector(0)", "legendFormat": "노드 장애", "refId": "A" }],
+      "title": "", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 빈번한 재시작\n\n**최근 1시간 내 3회 이상 재시작한 컨테이너**\n\n빈번한 재시작 원인:\n- 메모리 부족 → OOM\n- 설정 오류\n- 외부 의존성 문제\n- 버그 발생\n\n**확인 명령어:**\n```bash\nkubectl get pods -A --sort-by='.status.containerStatuses[0].restartCount'\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 1 }, "id": 5,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(increase(kube_pod_container_status_restarts_total[1h]) > 3) or vector(0)", "legendFormat": "재시작 빈번", "refId": "A" }],
+      "title": "", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 이미지 풀 실패\n\n**이미지 다운로드에 실패한 파드**\n\n원인:\n- 이미지 이름 오타/오류\n- Private registry 인증 실패\n- 네트워크 문제\n- 이미지 태그 없음\n\n**확인 명령어:**\n```bash\nkubectl get pods -A | grep ImagePull\nkubectl describe pod <name>\n```\n\n**해결:**\n```bash\n# imagePullSecrets 확인\nkubectl get secret -n <ns>\n```",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 1 }, "id": 6,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_pod_container_status_waiting_reason{reason=~\"ImagePullBackOff|ErrImagePull\"}) or vector(0)", "legendFormat": "ImagePull 실패", "refId": "A" }],
+      "title": "", "type": "stat"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 }, "id": 101, "panels": [], "title": "클러스터 현황 (Cluster Status)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "전체 노드 수 / Ready 노드 수",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 3, "x": 0, "y": 5 }, "id": 10,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_node_info)", "legendFormat": "", "refId": "A" }],
+      "title": "노드 수", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "전체 네임스페이스 수",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 3, "x": 3, "y": 5 }, "id": 11,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_namespace_created)", "legendFormat": "", "refId": "A" }],
+      "title": "네임스페이스", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Running 상태 파드 수",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 3, "x": 6, "y": 5 }, "id": 12,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(kube_pod_status_phase{phase=\"Running\"})", "legendFormat": "", "refId": "A" }],
+      "title": "Running 파드", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "전체 Deployment 수",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 3, "x": 9, "y": 5 }, "id": 13,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(kube_deployment_created)", "legendFormat": "", "refId": "A" }],
+      "title": "디플로이먼트", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "클러스터 전체 CPU 사용률",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }] }, "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 5 }, "id": 14,
+      "options": { "minVizHeight": 75, "minVizWidth": 75, "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true, "sizing": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "100 * sum(rate(container_cpu_usage_seconds_total{container!=\"\", container!=\"POD\"}[5m])) / sum(kube_node_status_allocatable{resource=\"cpu\"})", "legendFormat": "CPU", "refId": "A" }],
+      "title": "CPU 사용률", "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "클러스터 전체 메모리 사용률",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] }, "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 5 }, "id": 15,
+      "options": { "minVizHeight": 75, "minVizWidth": 75, "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true, "sizing": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "100 * sum(container_memory_working_set_bytes{container!=\"\", container!=\"POD\"}) / sum(kube_node_status_allocatable{resource=\"memory\"})", "legendFormat": "Memory", "refId": "A" }],
+      "title": "메모리 사용률", "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "PVC 평균 사용률",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] }, "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 5 }, "id": 16,
+      "options": { "minVizHeight": 75, "minVizWidth": 75, "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true, "sizing": "auto" },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "100 * avg(1 - kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)", "legendFormat": "Storage", "refId": "A" }],
+      "title": "스토리지 사용률", "type": "gauge"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 }, "id": 102, "panels": [], "title": "파드 목록 (Pod List)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 파드 전체 목록\n\nk9s 스타일로 파드 현황을 확인합니다.\n\n**컬럼 설명:**\n- **Namespace**: 네임스페이스 이름\n- **Pod**: 파드 이름\n- **Phase**: 파드 상태 (Running, Pending, Failed 등)\n- **Restarts**: 재시작 횟수\n- **CPU**: 현재 CPU 사용량\n- **Memory**: 현재 메모리 사용량",
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Phase" }, "properties": [{ "id": "mappings", "value": [{ "options": { "Running": { "color": "green", "index": 0, "text": "Running" } }, "type": "value" }, { "options": { "Pending": { "color": "yellow", "index": 1, "text": "Pending" } }, "type": "value" }, { "options": { "Failed": { "color": "red", "index": 2, "text": "Failed" } }, "type": "value" }, { "options": { "Succeeded": { "color": "blue", "index": 3, "text": "Succeeded" } }, "type": "value" }] }, { "id": "custom.cellOptions", "value": { "type": "color-text" } }] },
+          { "matcher": { "id": "byName", "options": "Restarts" }, "properties": [{ "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 10 }] } }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }] },
+          { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "short" }] },
+          { "matcher": { "id": "byName", "options": "Memory" }, "properties": [{ "id": "unit", "value": "bytes" }] }
+        ]
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 9 }, "id": 20,
+      "options": { "cellHeight": "sm", "footer": { "countRows": true, "fields": "", "reducer": ["count"], "show": true }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "Restarts" }] },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "kube_pod_status_phase{phase=~\"Running|Pending|Failed|Succeeded\", namespace=~\"$namespace\"} == 1", "format": "table", "instant": true, "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (namespace, pod) (kube_pod_container_status_restarts_total{namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!=\"\", container!=\"POD\", namespace=~\"$namespace\"}[5m]))", "format": "table", "instant": true, "refId": "C" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\", container!=\"POD\", namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "D" }
+      ],
+      "title": "파드 목록 (네임스페이스: $namespace)",
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "uid": true }, "indexByName": { "namespace": 0, "pod": 1, "phase": 2, "Value #B": 3, "Value #C": 4, "Value #D": 5 }, "renameByName": { "namespace": "Namespace", "pod": "Pod", "phase": "Phase", "Value #B": "Restarts", "Value #C": "CPU", "Value #D": "Memory" } } }
+      ],
+      "type": "table"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 }, "id": 103, "panels": [], "title": "노드 현황 (Node Status)", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 노드 전체 목록\n\n각 노드의 CPU, 메모리, 파드 수를 확인합니다.\n\n**컬럼 설명:**\n- **Node**: 노드 이름\n- **Ready**: Ready 상태\n- **CPU %**: CPU 사용률\n- **Memory %**: 메모리 사용률\n- **Pods**: 실행 중인 파드 수",
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "CPU %" }, "properties": [{ "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }] } }, { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "gauge" } }, { "id": "max", "value": 100 }, { "id": "unit", "value": "percent" }] },
+          { "matcher": { "id": "byName", "options": "Memory %" }, "properties": [{ "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } }, { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "gauge" } }, { "id": "max", "value": 100 }, { "id": "unit", "value": "percent" }] },
+          { "matcher": { "id": "byName", "options": "Ready" }, "properties": [{ "id": "mappings", "value": [{ "options": { "1": { "color": "green", "index": 0, "text": "Ready" } }, "type": "value" }, { "options": { "0": { "color": "red", "index": 1, "text": "NotReady" } }, "type": "value" }] }, { "id": "custom.cellOptions", "value": { "type": "color-text" } }] }
+        ]
+      },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 22 }, "id": 30,
+      "options": { "cellHeight": "md", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "kube_node_status_condition{condition=\"Ready\", status=\"true\"}", "format": "table", "instant": true, "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace((1 - avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\") * 100", "format": "table", "instant": true, "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace((1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\") * 100", "format": "table", "instant": true, "refId": "C" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (node) (kube_pod_info)", "format": "table", "instant": true, "refId": "D" }
+      ],
+      "title": "노드 현황",
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "condition": true, "status": true, "__name__": true, "job": true, "instance": true, "nodename": true }, "indexByName": { "node": 0, "Value #A": 1, "Value #B": 2, "Value #C": 3, "Value #D": 4 }, "renameByName": { "node": "Node", "Value #A": "Ready", "Value #B": "CPU %", "Value #C": "Memory %", "Value #D": "Pods" } } }
+      ],
+      "type": "table"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 }, "id": 104, "panels": [], "title": "네임스페이스별 리소스 분포", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "네임스페이스별 Running 파드 분포",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [], "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 29 }, "id": 40,
+      "options": { "displayLabels": ["name", "value"], "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value"] }, "pieType": "pie", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (namespace) (kube_pod_status_phase{phase=\"Running\"})", "legendFormat": "{{ namespace }}", "refId": "A" }],
+      "title": "네임스페이스별 파드 분포", "type": "piechart"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "네임스페이스별 CPU 사용량 Top 10",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 29 }, "id": 41,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "topk(10, sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", container!=\"POD\"}[5m])))", "legendFormat": "{{ namespace }}", "refId": "A" }],
+      "title": "네임스페이스별 CPU 사용량 (Top 10)", "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "네임스페이스별 메모리 사용량 Top 10",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 29 }, "id": 42,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "topk(10, sum by (namespace) (container_memory_working_set_bytes{container!=\"\", container!=\"POD\"}))", "legendFormat": "{{ namespace }}", "refId": "A" }],
+      "title": "네임스페이스별 메모리 사용량 (Top 10)", "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["kubernetes", "operations", "k9s", "overview"],
+  "templating": {
+    "list": [
+      { "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" }, "hide": 0, "includeAll": false, "label": "데이터소스", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "skipUrlSync": false, "type": "datasource" },
+      { "allValue": ".*", "current": { "selected": false, "text": "All", "value": "$__all" }, "datasource": { "type": "prometheus", "uid": "${datasource}" }, "definition": "label_values(kube_pod_info, namespace)", "hide": 0, "includeAll": true, "label": "네임스페이스", "multi": false, "name": "namespace", "options": [], "query": { "query": "label_values(kube_pod_info, namespace)", "refId": "PrometheusVariableQueryEditor-VariableQuery" }, "refresh": 1, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query" }
+    ]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "K8s 운영 현황판 (k9s 스타일)",
+  "uid": "k8s-operations-kr",
+  "version": 1
+}

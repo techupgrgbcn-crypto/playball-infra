@@ -1,0 +1,11 @@
+{{- if not .Values.eso.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-emails
+data:
+  authenticated-emails.txt: |
+    {{- range .Values.authenticatedEmails }}
+    {{ . }}
+    {{- end }}
+{{- end }}

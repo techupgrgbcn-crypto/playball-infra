@@ -1,0 +1,311 @@
+{
+  "annotations": {
+    "list": [],
+    "enable": false
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Page Views (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"page_view\" [24h])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Unique Sessions (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"page_view\" | json | __error__=\"\" [24h])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Match Clicks (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"match_click\" [24h])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Checkout Starts (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"checkout_start\" [24h])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Page Views Over Time",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"page_view\" [$__interval])",
+          "legendFormat": "Page Views",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "User Actions Over Time",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"match_click\" [$__interval])",
+          "legendFormat": "Match Click",
+          "refId": "A"
+        },
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"checkout_start\" [$__interval])",
+          "legendFormat": "Checkout Start",
+          "refId": "B"
+        },
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"match_tab_change\" [$__interval])",
+          "legendFormat": "Tab Change",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Device Type Distribution",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "sum by (device_type) (count_over_time({app=\"goormgb-frontend\"} | json | __error__=\"\" [$__range]))",
+          "legendFormat": "{{device_type}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right" },
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Login Status",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "sum by (is_logged_in) (count_over_time({app=\"goormgb-frontend\"} | json | __error__=\"\" [$__range]))",
+          "legendFormat": "{{is_logged_in}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right" },
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top Pages",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "topk(10, sum by (route) (count_over_time({app=\"goormgb-frontend\"} |= \"page_view\" | json | __error__=\"\" [$__range])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Onboarding Funnel",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"onboarding_start\" [$__interval])",
+          "legendFormat": "Start",
+          "refId": "A"
+        },
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"onboarding_step1_submit\" [$__interval])",
+          "legendFormat": "Step 1 Submit",
+          "refId": "B"
+        },
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"onboarding_complete\" [$__interval])",
+          "legendFormat": "Complete",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "API Errors",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "count_over_time({app=\"goormgb-frontend\"} |= \"api_error\" [$__interval])",
+          "legendFormat": "API Errors",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "fixedColor": "red", "mode": "fixed" }, "custom": { "lineWidth": 2, "fillOpacity": 20 } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Recent Events",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 28 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "{app=\"goormgb-frontend\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["faro", "frontend", "pm", "business"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "Asia/Seoul",
+  "title": "Frontend Analytics (PM)",
+  "uid": "frontend-analytics-pm",
+  "version": 1
+}

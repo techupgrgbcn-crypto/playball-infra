@@ -1,0 +1,6 @@
+# EKS Prod - Namespace 설정
+# Istio sidecar injection 활성화
+
+namespaces:
+  - name: prod
+    istio: true

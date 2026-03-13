@@ -1,0 +1,6 @@
+# EKS Staging - Namespace 설정
+# Istio sidecar injection 활성화
+
+namespaces:
+  - name: staging
+    istio: true

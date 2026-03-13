@@ -1,0 +1,6 @@
+apiVersion: v2
+name: redisinsight
+description: RedisInsight - Redis GUI tool by Redis Labs
+type: application
+version: 1.0.0
+appVersion: "2.68"

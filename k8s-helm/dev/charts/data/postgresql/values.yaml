@@ -1,0 +1,78 @@
+# PostgreSQL for MiniPC kubeadm
+
+config:
+  maxConnections: 200
+  # pg_stat_statements 활성화 (쿼리 분석용)
+  sharedPreloadLibraries: "pg_stat_statements"
+  pgStatStatements:
+    track: all
+
+# postgres_exporter (Prometheus 메트릭)
+exporter:
+  enabled: true
+  image:
+    repository: prometheuscommunity/postgres-exporter
+    tag: v0.15.0
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+image:
+  repository: postgres
+  tag: "16-alpine"
+  pullPolicy: IfNotPresent
+
+databases:
+  - goormgb
+
+externalSecret:
+  enabled: true
+  secretStore: aws-secrets-manager
+  remoteRef: dev/services/db
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+service:
+  port: 5432
+
+backup:
+  enabled: true
+  schedule: "0 */3 * * *"  # 매 3시간마다 (00:00, 03:00, 06:00, ...)
+  s3Bucket: goormgb-backup
+  s3Prefix: dev/postgres
+  externalSecret:
+    remoteRef: dev/infra/s3-backup
+  # ArgoCD sync 전 자동 백업
+  presync:
+    enabled: true
+
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+

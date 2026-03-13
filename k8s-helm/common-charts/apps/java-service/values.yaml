@@ -1,0 +1,99 @@
+# Java Spring Boot 서비스 기본 설정
+# 환경별 override: environments/apps/<env>/values-<app>.yaml
+
+replicaCount: 1
+
+image:
+  repository: ""  # ECR 주소 (values에서 override)
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ecr-pull-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service
+service:
+  type: ClusterIP
+  port: 8080
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Node scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# HPA
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# Istio
+istio:
+  sidecar: true
+  gateway:
+    enabled: false
+    host: ""
+    tls:
+      enabled: true
+      credentialName: goormgb-tls
+  # Retry policy for connection stability
+  retries:
+    attempts: 3
+    perTryTimeout: "2s"
+    retryOn: "connect-failure,refused-stream,503,reset"
+
+# Spring Boot Actuator health checks
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Graceful shutdown
+terminationGracePeriodSeconds: 30
+
+# Environment variables
+env: []
+# - name: SPRING_PROFILES_ACTIVE
+#   value: "dev"
+
+# ConfigMap/Secret references (ESO에서 생성)
+envFrom:
+  - configMapRef:
+      name: service-config
+  - secretRef:
+      name: service-config
+
+# JVM options
+javaOpts: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+# OpenTelemetry Java Agent
+otel:
+  enabled: false
+  agentVersion: "2.11.0"
+  collectorEndpoint: "http://otel-collector.monitoring.svc.cluster.local:4317"

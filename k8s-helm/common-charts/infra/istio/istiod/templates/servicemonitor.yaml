@@ -1,0 +1,34 @@
+# Istiod ServiceMonitor - 컨트롤 플레인 메트릭 수집
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+      istio: pilot
+  namespaceSelector:
+    matchNames:
+      - istio-system
+  endpoints:
+    - port: http-monitoring  # 15014
+      interval: 30s
+      path: /metrics
+      relabelings:
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - action: replace
+          sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        # instance를 "istiod (IP:port)" 형식으로 변경
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_name, __address__]
+          separator: " ("
+          replacement: "$1$2)"
+          targetLabel: instance

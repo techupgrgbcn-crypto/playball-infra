@@ -1,0 +1,179 @@
+{{- if .Values.notifications.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  # Discord webhook 서비스 설정 (generic webhook 사용)
+  # ArgoCD Notifications는 'discord' 타입을 지원하지 않으므로 'webhook' 사용
+  # 앱 배포용 (web, ai 등)
+  service.webhook.discord-app: |
+    url: $discord-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+  # 인프라 배포용
+  service.webhook.discord-infra: |
+    url: $discord-webhook-infra-url
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # 알림 템플릿 (webhook 형식)
+  # 앱용 (discord-app) + 인프라용 (discord-infra) 둘 다 정의
+  template.app-sync-running: |
+    webhook:
+      discord-app:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "🔄 %s 동기화 시작" .app.metadata.name | toJson }}`}},
+              "description": "ArgoCD가 애플리케이션 동기화를 시작했습니다.",
+              "color": 896234,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Revision", "value": {{`{{.app.status.sync.revision | trunc 7 | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true}
+              ],
+              "timestamp": {{`{{.app.status.operationState.startedAt | toJson}}`}}
+            }]
+          }
+      discord-infra:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "🔄 %s 동기화 시작" .app.metadata.name | toJson }}`}},
+              "description": "ArgoCD가 애플리케이션 동기화를 시작했습니다.",
+              "color": 896234,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Revision", "value": {{`{{.app.status.sync.revision | trunc 7 | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true}
+              ],
+              "timestamp": {{`{{.app.status.operationState.startedAt | toJson}}`}}
+            }]
+          }
+
+  template.app-deployed: |
+    webhook:
+      discord-app:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "✅ %s 배포 완료" .app.metadata.name | toJson }}`}},
+              "description": "애플리케이션이 성공적으로 배포되었습니다.",
+              "color": 1621586,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Revision", "value": {{`{{.app.status.sync.revision | trunc 7 | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true}
+              ],
+              "timestamp": {{`{{.app.status.operationState.finishedAt | toJson}}`}}
+            }]
+          }
+      discord-infra:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "✅ %s 배포 완료" .app.metadata.name | toJson }}`}},
+              "description": "애플리케이션이 성공적으로 배포되었습니다.",
+              "color": 1621586,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Revision", "value": {{`{{.app.status.sync.revision | trunc 7 | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true}
+              ],
+              "timestamp": {{`{{.app.status.operationState.finishedAt | toJson}}`}}
+            }]
+          }
+
+  template.app-deploy-failed: |
+    webhook:
+      discord-app:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "❌ %s 배포 실패" .app.metadata.name | toJson }}`}},
+              "description": "애플리케이션 배포에 실패했습니다.",
+              "color": 15224124,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true},
+                {"name": "Error", "value": {{`{{.app.status.operationState.message | trunc 500 | toJson}}`}}, "inline": false}
+              ],
+              "timestamp": {{`{{.app.status.operationState.finishedAt | toJson}}`}}
+            }]
+          }
+      discord-infra:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "❌ %s 배포 실패" .app.metadata.name | toJson }}`}},
+              "description": "애플리케이션 배포에 실패했습니다.",
+              "color": 15224124,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true},
+                {"name": "Error", "value": {{`{{.app.status.operationState.message | trunc 500 | toJson}}`}}, "inline": false}
+              ],
+              "timestamp": {{`{{.app.status.operationState.finishedAt | toJson}}`}}
+            }]
+          }
+
+  template.app-health-degraded: |
+    webhook:
+      discord-app:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "⚠️ %s 상태 이상" .app.metadata.name | toJson }}`}},
+              "description": "애플리케이션 상태가 Degraded로 변경되었습니다.",
+              "color": 16044863,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Health Status", "value": {{`{{.app.status.health.status | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true}
+              ]
+            }]
+          }
+      discord-infra:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{`{{ printf "⚠️ %s 상태 이상" .app.metadata.name | toJson }}`}},
+              "description": "애플리케이션 상태가 Degraded로 변경되었습니다.",
+              "color": 16044863,
+              "fields": [
+                {"name": "Application", "value": {{`{{.app.metadata.name | toJson}}`}}, "inline": true},
+                {"name": "Health Status", "value": {{`{{.app.status.health.status | toJson}}`}}, "inline": true},
+                {"name": "Namespace", "value": {{`{{.app.spec.destination.namespace | toJson}}`}}, "inline": true}
+              ]
+            }]
+          }
+
+  # 트리거 설정 (operationState가 nil인 경우 체크)
+  trigger.on-sync-running: |
+    - when: app.status.operationState != nil and app.status.operationState.phase in ['Running']
+      send: [app-sync-running]
+
+  trigger.on-deployed: |
+    - when: app.status.operationState != nil and app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+      send: [app-deployed]
+
+  trigger.on-deploy-failed: |
+    - when: app.status.operationState != nil and app.status.operationState.phase in ['Error', 'Failed']
+      send: [app-deploy-failed]
+
+  trigger.on-health-degraded: |
+    - when: app.status.health.status == 'Degraded'
+      send: [app-health-degraded]
+{{- end }}

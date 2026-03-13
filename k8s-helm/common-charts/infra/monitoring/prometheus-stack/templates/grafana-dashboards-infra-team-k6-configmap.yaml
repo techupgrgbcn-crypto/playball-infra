@@ -1,0 +1,23 @@
+{{- if index .Values "kube-prometheus-stack" "grafana" "enabled" }}
+{{- $dashboardFiles := .Files.Glob "files/grafana-dashboards/infra-team-observability/k6/*.json" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-infra-team-k6
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: monitoring
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "부하 테스트 (k6)"
+{{- if gt (len $dashboardFiles) 0 }}
+data:
+{{- range $path, $_ := $dashboardFiles }}
+  {{ base $path }}: |-
+{{ $.Files.Get $path | nindent 4 }}
+{{- end }}
+{{- else }}
+data: {}
+{{- end }}
+{{- end }}

@@ -1,0 +1,11 @@
+# kubeadm-dev 팀원 RBAC 설정
+
+clusterRoleName: team-viewer
+
+members:
+  - kind: User
+    name: team-member-1
+  - kind: User
+    name: team-member-2
+  - kind: User
+    name: team-member-3

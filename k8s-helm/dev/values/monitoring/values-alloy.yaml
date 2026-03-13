@@ -1,0 +1,71 @@
+# Alloy - Dev 환경 설정
+# Faro Receiver for Frontend RUM
+
+# Faro VirtualService 설정
+faro:
+  virtualService:
+    enabled: true
+    host: "api.dev.goormgb.space"
+    gateway: "istio-system/api-gateway"
+  cors:
+    allowOrigins:
+      - "https://dev.goormgb.space"
+      - "http://localhost:3000"
+
+# Alloy Helm Chart 설정
+alloy:
+  alloy:
+    # CP 노드에 배치 (모니터링 스택과 동일)
+    nodeSelector:
+      kubernetes.io/hostname: control-plane-1
+    tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+    configMap:
+      content: |
+        // ===== Faro Receiver =====
+        faro.receiver "frontend" {
+          server {
+            listen_address = "0.0.0.0"
+            listen_port = 12347
+            cors_allowed_origins = [
+              "https://dev.goormgb.space",
+              "http://localhost:3000",
+            ]
+          }
+
+          sourcemaps {}
+
+          output {
+            logs   = [loki.write.faro.receiver]
+            traces = [otelcol.exporter.otlp.tempo.input]
+          }
+        }
+
+        // ===== Loki Exporter =====
+        loki.write "faro" {
+          endpoint {
+            url = "http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+          }
+        }
+
+        // ===== Tempo Exporter =====
+        otelcol.exporter.otlp "tempo" {
+          client {
+            endpoint = "tempo.monitoring.svc.cluster.local:4317"
+            tls {
+              insecure = true
+            }
+          }
+        }
+
+  # Dev 환경 리소스 (최소화)
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

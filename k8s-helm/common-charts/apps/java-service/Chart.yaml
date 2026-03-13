@@ -1,0 +1,6 @@
+apiVersion: v2
+name: java-service
+description: Java Spring Boot service chart for goormgb backend services
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

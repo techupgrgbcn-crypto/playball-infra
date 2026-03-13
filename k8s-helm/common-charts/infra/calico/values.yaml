@@ -1,0 +1,52 @@
+# Calico CNI with Tigera Operator
+# - VXLAN encapsulation
+# - nodeAddressAutodetection: CIDR 기반
+
+# PodMonitor 설정 (Felix 메트릭 수집)
+metrics:
+  enabled: true
+  port: 9091
+  interval: "30s"
+  relabeling: true
+
+# FelixConfiguration - Prometheus 메트릭 활성화
+felixConfiguration:
+  enabled: true
+  prometheusMetricsEnabled: true
+  prometheusMetricsPort: 9091
+
+# tigera-operator subchart 설정
+tigera-operator:
+  # Installation CR 설정 (spec 레벨 없이 직접 설정)
+  installation:
+    enabled: true
+    controlPlaneNodeSelector:
+      kubernetes.io/hostname: control-plane-1
+    controlPlaneTolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+    calicoNetwork:
+      ipPools:
+        - cidr: 10.244.0.0/16
+          encapsulation: VXLANCrossSubnet
+          natOutgoing: Enabled
+          nodeSelector: all()
+      nodeAddressAutodetectionV4:
+        firstFound: false
+        cidrs:
+          - 10.0.0.0/24
+    nodeMetricsPort: 9091
+
+  # APIServer CR 설정
+  apiServer:
+    enabled: true
+
+  # Operator 설정
+  tigeraOperator:
+    nodeSelector:
+      kubernetes.io/hostname: control-plane-1
+    tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"

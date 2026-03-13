@@ -1,0 +1,22 @@
+# kubeadm-dev - DDNS Cloudflare 설정
+# Domain: goormgb.space
+
+domain: "goormgb.space"
+zoneID: "f9fdc81712963738bc9d5ee628849e53"
+
+records:
+  - "" # goormgb.space (root)
+  - "api.dev" # api.dev.goormgb.space (백엔드 API)
+  - "argocd" # argocd.goormgb.space
+  - "grafana" # grafana.goormgb.space
+  - "kiali" # kiali.goormgb.space
+  - "cloudbeaver" # cloudbeaver.goormgb.space
+  # dev.goormgb.space는 Vercel CNAME이라 제외
+
+# CP 노드에 배치 (인프라 작업)
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"

@@ -1,0 +1,71 @@
+# Redis Chart Default Values
+# 환경별 설정은 dev/values/values-redis-*.yaml에서 override
+
+image:
+  repository: redis
+  tag: "7-alpine"
+  pullPolicy: IfNotPresent
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 2Gi
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+service:
+  port: 6379
+
+exporter:
+  enabled: false
+  image:
+    repository: oliver006/redis_exporter
+    tag: v1.66.0
+    pullPolicy: IfNotPresent
+  port: 9121
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+config:
+  maxmemory: 200mb
+  maxmemoryPolicy: allkeys-lru
+  appendonly: "yes"
+
+backup:
+  enabled: false
+  schedule: "0 4 * * *"
+  s3Bucket: ""
+  s3Prefix: ""
+  externalSecret:
+    remoteRef: ""
+
+externalSecret:
+  enabled: false
+  secretStore: aws-secrets-manager
+  remoteRef: ""
+
+nodeSelector: {}
+tolerations: []
+
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 5
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5

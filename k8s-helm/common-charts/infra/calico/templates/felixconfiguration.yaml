@@ -1,0 +1,9 @@
+{{- if .Values.felixConfiguration.enabled }}
+apiVersion: projectcalico.org/v3
+kind: FelixConfiguration
+metadata:
+  name: default
+spec:
+  prometheusMetricsEnabled: {{ .Values.felixConfiguration.prometheusMetricsEnabled | default true }}
+  prometheusMetricsPort: {{ .Values.felixConfiguration.prometheusMetricsPort | default 9091 }}
+{{- end }}

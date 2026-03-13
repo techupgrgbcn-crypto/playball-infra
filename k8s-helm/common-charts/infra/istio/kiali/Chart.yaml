@@ -1,0 +1,7 @@
+apiVersion: v2
+name: kiali-config
+description: Kiali additional configuration (ExternalSecret, VirtualService)
+type: application
+version: 1.0.0
+appVersion: "2.23.0"
+# OCI dependency removed - using direct OCI reference in ArgoCD

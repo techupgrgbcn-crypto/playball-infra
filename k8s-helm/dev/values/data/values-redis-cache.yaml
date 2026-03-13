@@ -1,0 +1,49 @@
+# Redis Cache - 세션/캐시용
+# 서비스명: redis-cache.data.svc.cluster.local
+
+image:
+  repository: redis
+  tag: "7-alpine"
+  pullPolicy: IfNotPresent
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 2Gi
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+service:
+  port: 6379
+
+exporter:
+  enabled: true
+
+config:
+  maxmemory: 200mb
+  maxmemoryPolicy: allkeys-lru  # 메모리 부족 시 오래된 키 삭제
+  appendonly: "no"              # 캐시는 persistence 불필요
+
+backup:
+  enabled: false  # 캐시는 백업 불필요
+
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 5
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5

@@ -1,0 +1,56 @@
+# Calico CNI 설정 (dev 환경)
+# - VXLAN encapsulation
+# - control-plane-1 노드 기준 설정
+
+# FelixConfiguration - tigera-operator가 자동 생성하므로 비활성화
+felixConfiguration:
+  enabled: false
+
+# PodMonitor 설정 (Felix 메트릭 수집)
+metrics:
+  enabled: true
+  port: 9091
+  interval: "30s"
+  relabeling: true
+
+# tigera-operator subchart 설정
+tigera-operator:
+  # CRD는 이미 설치됨 - ArgoCD annotation 크기 문제 방지
+  crd:
+    create: false
+  # Installation CR 설정 (spec 레벨 없이 직접 설정)
+  installation:
+    enabled: true
+    # Calico 컨트롤 플레인을 CP 노드에 배치 (typha, kube-controllers)
+    controlPlaneNodeSelector:
+      kubernetes.io/hostname: control-plane-1
+    controlPlaneTolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+    calicoNetwork:
+      ipPools:
+        - cidr: 10.244.0.0/16
+          encapsulation: VXLANCrossSubnet
+          natOutgoing: Enabled
+          nodeSelector: all()
+      nodeAddressAutodetectionV4:
+        firstFound: false
+        cidrs:
+          - 10.0.0.0/24
+    # Felix 메트릭 활성화 (Prometheus 스크래핑용)
+    nodeMetricsPort: 9091
+
+  # APIServer CR 설정
+  apiServer:
+    enabled: true
+
+  # Operator 설정
+  tigeraOperator:
+    # Operator를 CP 노드에 배치
+    nodeSelector:
+      kubernetes.io/hostname: control-plane-1
+    tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"

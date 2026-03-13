@@ -1,0 +1,14 @@
+# EKS Staging - External Secrets Operator Configuration
+# AWS Secrets Manager 연동 (IRSA 사용)
+
+# ClusterSecretStore 설정
+clusterSecretStore:
+  enabled: true
+  name: aws-secrets-manager
+  region: ap-northeast-2
+
+serviceAccount:
+  # IRSA를 통한 인증 (EKS)
+  # IAM Role은 Terraform에서 생성됨
+  name: external-secrets-sa
+  namespace: external-secrets

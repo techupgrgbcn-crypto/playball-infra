@@ -1,0 +1,58 @@
+{{- if .Values.oauth.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudbeaver-config
+data:
+  cloudbeaver.conf: |
+    {
+      "server": {
+        "serverPort": 8978,
+        "serverHost": "0.0.0.0",
+        "serverName": "CloudBeaver",
+        "expireSessionAfterPeriod": 1800000,
+        "database": {
+          "driver": "h2_embedded_v2",
+          "url": "jdbc:h2:/opt/cloudbeaver/workspace/.data/cb.h2v2.dat"
+        },
+        "enabledAuthProviders": [
+          "local",
+          "google"
+        ]
+      },
+      "app": {
+        "anonymousAccessEnabled": false,
+        "authenticationEnabled": true,
+        "supportsCustomConnections": true,
+        "publicCredentialsSaveEnabled": true,
+        "adminCredentialsSaveEnabled": true,
+        "resourceManagerEnabled": true,
+        "enabledDrivers": []
+      }
+    }
+  product.conf: |
+    {
+      "core": {
+        "authentication": {
+          "baseAuthProvider": "local",
+          "primaryAuthProvider": "local"
+        }
+      },
+      "plugin_io.cloudbeaver.product.ce": {
+        "weightedSecurityTypes": ["bcrypt", "md5", "sha256", "plain"],
+        "externalProvidersEnabled": true,
+        "authConfigurations": {
+          "google": {
+            "id": "google",
+            "provider": "google",
+            "displayName": "Google",
+            "disabled": false,
+            "parameters": {
+              "clientId": "{{ .Values.oauth.google.clientId }}",
+              "clientSecret": "{{ .Values.oauth.google.clientSecret }}"
+            }
+          }
+        }
+      }
+    }
+{{- end }}

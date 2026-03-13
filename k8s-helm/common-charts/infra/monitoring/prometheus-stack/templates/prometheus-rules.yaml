@@ -1,0 +1,36 @@
+{{- if and .Values.alertRules.enabled .Values.alertRules.http5xxOnly.enabled }}
+{{- $cfg := .Values.alertRules.http5xxOnly }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-custom-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: prometheus-stack
+    app.kubernetes.io/part-of: monitoring
+spec:
+  groups:
+    - name: custom.http5xx.rules
+      rules:
+        - alert: {{ $cfg.alertName }}
+          expr: |
+            sum(
+              increase(
+                http_server_request_duration_seconds_count{
+                  {{ if $cfg.namespace }}
+                  namespace="{{ $cfg.namespace }}",
+                  {{ end }}
+                  job=~"{{ $cfg.jobRegex }}",
+                  http_response_status_code=~"5.."
+                }[{{ $cfg.lookback }}]
+              )
+            ) > {{ $cfg.threshold }}
+          for: {{ $cfg.for }}
+          labels:
+            severity: {{ $cfg.severity }}
+            environment: {{ $cfg.environment | quote }}
+            team: dev
+          annotations:
+            summary: "{{ $cfg.environment }} 환경 5xx 에러 감지"
+            description: "최근 {{ $cfg.lookback }} 동안 {{ $cfg.environment }} 웹 서비스에서 5xx 응답이 발생했습니다."
+{{- end }}

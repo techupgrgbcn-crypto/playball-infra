@@ -1,0 +1,185 @@
+{{/*
+Raw Manifests - Gateway, VirtualService, EnvoyFilter
+이 리소스들은 ArgoCD Application이 아닌 직접 배포되는 Kubernetes 리소스입니다.
+*/}}
+
+{{- if .Values.rawManifests.apiGateway.enabled }}
+---
+# API Gateway (Istio Gateway)
+# 모든 namespace의 VirtualService에서 참조: istio-system/api-gateway
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: api-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: goormgb-tls
+      hosts:
+        - "api.dev.goormgb.space"
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "api.dev.goormgb.space"
+      tls:
+        httpsRedirect: true
+{{- end }}
+
+{{- if .Values.rawManifests.swaggerGateway.enabled }}
+---
+# Swagger Gateway + VirtualService
+# swagger.dev.goormgb.space -> OAuth2 Proxy -> 실제 서비스
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: swagger-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: goormgb-tls
+      hosts:
+        - "swagger.dev.goormgb.space"
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "swagger.dev.goormgb.space"
+      tls:
+        httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: swagger-route
+  namespace: istio-system
+spec:
+  hosts:
+    - "swagger.dev.goormgb.space"
+  gateways:
+    - swagger-gateway
+  http:
+    # 모든 요청을 OAuth2 Proxy로 라우팅
+    - route:
+        - destination:
+            host: oauth2-proxy.istio-system.svc.cluster.local
+            port:
+              number: 4180
+{{- end }}
+
+{{- if .Values.rawManifests.swagger403Redirect.enabled }}
+---
+# 403 응답 시 OAuth2 로그인 페이지로 리다이렉트
+# 문제: 만료된 쿠키로 인한 403 -> 로그인 리다이렉트 필요
+# 해결: envoy_on_request에서 호스트 저장 -> envoy_on_response에서 403을 302로 변환
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: swagger-403-redirect
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inlineCode: |
+              -- 요청 단계: swagger 도메인인지 확인하고 메타데이터에 저장
+              function envoy_on_request(request_handle)
+                local host = request_handle:headers():get(":authority") or ""
+                local path = request_handle:headers():get(":path") or "/"
+
+                if string.find(host, "swagger") then
+                  request_handle:streamInfo():dynamicMetadata():set("swagger_filter", "is_swagger", "true")
+                  request_handle:streamInfo():dynamicMetadata():set("swagger_filter", "original_path", path)
+                end
+              end
+
+              -- 응답 단계: swagger 도메인 처리
+              function envoy_on_response(response_handle)
+                local status = response_handle:headers():get(":status")
+                local metadata = response_handle:streamInfo():dynamicMetadata():get("swagger_filter")
+
+                if metadata and metadata["is_swagger"] == "true" then
+                  -- 모든 swagger 응답에 캐시 방지 헤더 추가 (에러 캐싱 방지)
+                  response_handle:headers():remove("cache-control")
+                  response_handle:headers():add("cache-control", "no-cache, no-store, must-revalidate, max-age=0")
+                  response_handle:headers():add("pragma", "no-cache")
+
+                  -- 403 응답을 302 리다이렉트로 변환
+                  if status == "403" then
+                    local path = metadata["original_path"] or "/"
+                    local redirect_url = "/oauth2/start?rd=" .. path
+
+                    response_handle:headers():replace(":status", "302")
+                    response_handle:headers():add("location", redirect_url)
+                  end
+                end
+              end
+{{- end }}
+
+{{- if .Values.rawManifests.aiDefenseRoute.enabled }}
+---
+# AI Defense 서비스 라우팅
+# api.dev.goormgb.space/ai/* -> ai-defense 서비스
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: ai-defense-route
+  namespace: dev-ai
+spec:
+  hosts:
+    - "api.dev.goormgb.space"
+  gateways:
+    - istio-system/api-gateway
+  http:
+    # /ai/* 경로 라우팅 (Swagger UI 포함)
+    - match:
+        - uri:
+            prefix: /ai/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: dev-ai-defense.dev-ai.svc.cluster.local
+            port:
+              number: 8000
+    # /ai (trailing slash 없이) -> /ai/로 리다이렉트
+    - match:
+        - uri:
+            exact: /ai
+      redirect:
+        uri: /ai/
+{{- end }}

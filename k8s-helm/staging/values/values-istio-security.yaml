@@ -1,0 +1,98 @@
+# EKS Staging - Istio Security
+# WAF-like protection using EnvoyFilter + Lua
+
+enabled: true
+
+# 적용 대상 (Istio IngressGateway)
+selector:
+  labels:
+    istio: ingressgateway
+
+# 차단 모드: block (차단) | detect (로그만)
+# Staging 환경에서는 block 모드 사용
+mode: block
+
+# 로깅 설정
+logging:
+  enabled: true
+  level: warn
+
+# 탐지 패턴
+patterns:
+  sqlInjection:
+    enabled: true
+  xss:
+    enabled: true
+  pathTraversal:
+    enabled: true
+  commandInjection:
+    enabled: true
+  ldapInjection:
+    enabled: true
+  xxeInjection:
+    enabled: true
+  ssrf:
+    enabled: true
+  log4shell:
+    enabled: true
+  headerInjection:
+    enabled: true
+  botScanner:
+    enabled: true
+
+# 제외 경로 (health check, metrics, 내부 서비스 등)
+excludePaths:
+  # Grafana 내부 API (Loki 쿼리 등 - SQL Injection 오탐 방지)
+  - "/api/datasources/"
+
+  # Health checks
+  - "/health"
+  - "/healthz"
+  - "/ready"
+  - "/readyz"
+  - "/livez"
+  - "/actuator/health"
+  - "/actuator/info"
+  - "/actuator/prometheus"
+
+  # Metrics & Monitoring
+  - "/metrics"
+  - "/stats/prometheus"
+
+  # Kubernetes probes
+  - "/api/v1/health"
+
+  # Swagger/OpenAPI
+  - "/swagger"
+  - "/swagger-ui"
+  - "/v3/api-docs"
+  - "/openapi"
+
+  # Kiali
+  - "/kiali"
+
+# 응답 설정
+response:
+  statusCode: 403
+  body: "Forbidden: Security violation detected"
+
+# 내부 경로 차단 (외부 접근 불가)
+# 주의: 접미사 와일드카드(*/path)는 오탐 위험이 있어 접두사 기반만 사용
+denyPaths:
+  enabled: true
+  paths:
+    # Prometheus/Metrics (접두사 기반만 사용)
+    - "/api/prometheus*"
+    - "/actuator/prometheus*"
+    - "/metrics*"
+    # Health checks (접두사 기반만 사용)
+    - "/health*"
+    - "/healthz*"
+    - "/ready*"
+    - "/readyz*"
+    - "/livez*"
+    - "/actuator/health*"
+
+# External Authorization (AI Defense) - 비활성화
+extAuthz:
+  enabled: false

@@ -1,0 +1,24 @@
+{{- if .Values.virtualService.enabled }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: cloudbeaver-vs
+spec:
+  hosts:
+    - {{ .Values.virtualService.host | quote }}
+  gateways:
+    - {{ .Values.virtualService.gateway }}
+  http:
+    - match:
+        - uri:
+            prefix: /
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,503,reset
+      route:
+        - destination:
+            host: cloudbeaver
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}

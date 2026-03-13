@@ -1,0 +1,4 @@
+apiVersion: v2
+name: ecr-creds
+description: ECR credential refresh CronJob for kubeadm
+version: 0.1.0

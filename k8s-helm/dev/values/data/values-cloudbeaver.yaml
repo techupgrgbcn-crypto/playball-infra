@@ -1,0 +1,40 @@
+# kubeadm-dev-dev - CloudBeaver 설정
+# Domain: cloudbeaver.goormgb.space
+
+replicaCount: 1
+
+image:
+  repository: dbeaver/cloudbeaver
+  tag: "24.0.0"
+  pullPolicy: IfNotPresent
+
+# CP 노드에 배치
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1536Mi
+
+persistence:
+  enabled: true
+  size: 2Gi
+
+# Istio VirtualService
+virtualService:
+  enabled: true
+  host: "cloudbeaver.goormgb.space"
+  gateway: "istio-system/goormgb-gateway"
+
+# PostgreSQL connection info (개발자가 CloudBeaver UI에서 직접 연결 설정)
+# host: postgresql.data.svc.cluster.local
+# port: 5432

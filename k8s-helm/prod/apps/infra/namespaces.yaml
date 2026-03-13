@@ -1,0 +1,24 @@
+# Namespaces with Istio injection
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: namespaces
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git
+    targetRevision: argocd-sync/prod
+    path: common-charts/infra/namespaces
+    helm:
+      valueFiles:
+        - ../../../prod/values/values-namespaces.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

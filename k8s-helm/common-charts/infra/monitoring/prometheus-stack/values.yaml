@@ -1,0 +1,149 @@
+# Default values for prometheus-stack wrapper
+# These can be overridden by environment-specific values
+
+kube-prometheus-stack:
+  # CRD는 302-goormgb-k8s-bootstrap에서 별도 설치 (annotation 크기 제한 문제 회피)
+  crds:
+    enabled: false
+
+  # Prometheus
+  prometheus:
+    prometheusSpec:
+      # 모든 namespace의 ServiceMonitor/PodMonitor 수집
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+
+      retention: 15d
+      retentionSize: "10GB"
+
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 20Gi
+
+  # Grafana
+  grafana:
+    enabled: true
+    # adminPassword는 existingSecret 사용 시 무시됨
+
+    # Sidecar 설정 - ConfigMap에서 대시보드 자동 로드
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        folderAnnotation: grafana_folder
+        provider:
+          foldersFromFilesStructure: false
+          allowUiUpdates: true
+
+    persistence:
+      enabled: true
+      size: 5Gi
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    # 추가 datasource (Loki, Jaeger)
+    additionalDataSources: []
+
+    # 대시보드 - kube-prometheus-stack 기본 대시보드 사용
+    # custom dashboards가 필요하면 configMap으로 마운트 후 아래 설정 추가
+    # dashboardProviders: {}
+    # dashboardsConfigMaps: {}
+
+  # AlertManager
+  alertmanager:
+    alertmanagerSpec:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+
+    # Alertmanager config는 환경별 values 파일에서 설정
+    # Discord webhook URL은 External Secret (alertmanager-discord-webhook)에서 가져옴
+    # config:
+    #   global:
+    #     resolve_timeout: 5m
+    #   route: ...
+    #   receivers: ...
+
+  # Node Exporter (모든 노드에서 실행)
+  nodeExporter:
+    enabled: true
+
+  # Kube State Metrics
+  kubeStateMetrics:
+    enabled: true
+
+# Grafana ESO 설정
+grafana:
+  eso:
+    enabled: false
+    secretManagerKey: ""  # 예: dev/monitoring/grafana
+    oauthSecretManagerKey: ""  # 예: common/google-login/grafana
+
+# Alertmanager Discord webhook ESO 설정
+alertmanager:
+  discord:
+    eso:
+      enabled: false
+      secretManagerKey: ""  # 예: dev/monitoring/discord-webhook
+
+# Istio Gateway 설정
+gateway:
+  grafana:
+    enabled: false
+    host: ""
+  prometheus:
+    enabled: false
+    host: ""
+
+# Alert Rules (PrometheusRule CRD)
+alertRules:
+  enabled: true
+
+# Node placement
+nodeSelector: {}
+tolerations: []
+
+# Custom alert rules (wrapper chart)
+alertRules:
+  enabled: false
+  http5xxOnly:
+    enabled: false
+    alertName: DevHttp5xxDetected
+    environment: unknown
+    namespace: ""
+    jobRegex: "(java-cloud-gateway|.*api-gateway.*|.*auth-guard.*|.*order-core.*|.*queue.*|.*recommendation.*|.*seat.*)"
+    lookback: 5m
+    for: 1m
+    threshold: 0
+    severity: critical
+
+# Alertmanager Discord webhook secret settings
+alertmanager:
+  discord:
+    eso:
+      enabled: false
+      secretManagerKey: ""  # 예: dev/monitoring/discord-webhook-alerts

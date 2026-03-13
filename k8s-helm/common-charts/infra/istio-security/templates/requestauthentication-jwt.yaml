@@ -1,0 +1,55 @@
+{{- if and .Values.enabled .Values.jwtAuth.enabled }}
+# ============================================================
+# RequestAuthentication - JWT 검증 규칙
+# ============================================================
+# 이 리소스만으로는 토큰 없는 요청도 통과됨!
+# → 토큰이 "있으면" 검증, "없으면" 그냥 통과
+# → 토큰 필수로 만들려면 AuthorizationPolicy 필요
+# ============================================================
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-authentication
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: jwt-auth
+spec:
+  # Ingress Gateway에 적용
+  selector:
+    matchLabels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+
+  jwtRules:
+    {{- range .Values.jwtAuth.issuers }}
+    # --- {{ .name }} ---
+    - issuer: "{{ .issuer }}"
+      jwksUri: "{{ .jwksUri }}"
+      {{- if $.Values.jwtAuth.forwardOriginalToken }}
+      # 원본 토큰을 백엔드로 전달 (Gateway에서 파싱용)
+      forwardOriginalToken: true
+      {{- end }}
+      {{- if .fromHeaders }}
+      fromHeaders:
+        {{- range .fromHeaders }}
+        - name: "{{ .name }}"
+          {{- if .prefix }}
+          prefix: "{{ .prefix }}"
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if .audiences }}
+      audiences:
+        {{- range .audiences }}
+        - "{{ . }}"
+        {{- end }}
+      {{- end }}
+      # 토큰 만료 허용 오차 (클럭 스큐 대응)
+      # outputClaimToHeaders로 클레임을 헤더로 전달 가능
+      outputClaimToHeaders:
+        - header: "x-jwt-sub"
+          claim: "sub"
+        - header: "x-jwt-email"
+          claim: "email"
+    {{- end }}
+{{- end }}

@@ -1,0 +1,106 @@
+# Alertmanager routing/receivers (dev)
+
+alertmanager:
+  discord:
+    eso:
+      enabled: true
+      secretManagerKey: "dev/monitoring/discord-webhook-alerts"
+
+kube-prometheus-stack:
+  alertmanager:
+    alertmanagerSpec:
+      secrets:
+        - alertmanager-discord-webhooks
+
+    config:
+      global:
+        resolve_timeout: 5m
+
+      route:
+        group_by: ['alertname', 'namespace']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 30m
+        receiver: 'null'
+        routes:
+          # Dev 임시 정책: 5xx 알람만 Discord 전송
+          - match:
+              alertname: DevHttp5xxDetected
+            receiver: 'discord-critical'
+            repeat_interval: 30m
+          - match:
+              alertname: Watchdog
+            receiver: 'null'
+          - match:
+              alertname: InfoInhibitor
+            receiver: 'null'
+
+      receivers:
+        - name: 'discord-critical'
+          slack_configs:
+            - api_url_file: '/etc/alertmanager/secrets/alertmanager-discord-webhooks/critical-webhook-url'
+              send_resolved: true
+              title_link: 'https://grafana.goormgb.space/d/dfevjtvzho5q8d'
+              title: |-
+                [{{ or .CommonLabels.environment "unknown" }}] {{ if eq .Status "resolved" }}✅ 장애 복구 알림{{ else }}🚨 치명 장애 알림{{ end }}
+              text: |-
+                {{ if ne .Status "resolved" }}@개발팀 @admins{{ end }}
+                ```text
+                🏷 알림        | {{ if eq .CommonLabels.alertname "DevHttp5xxDetected" }}HTTP 5xx 오류 감지{{ else }}{{ or .CommonLabels.alertname "N/A" }}{{ end }}
+                📦 네임스페이스 | {{ or .CommonLabels.namespace "N/A" }}
+                🔢 대상건수    | {{ len .Alerts }}
+                {{ with index .Alerts 0 -}}
+                🖥 인스턴스    | {{ or .Labels.instance .Labels.node "N/A" }}
+                🕒 발생(KST)   | {{ .StartsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05 KST" }}
+                {{ if eq $.Status "resolved" }}✅ 복구(KST)   | {{ .EndsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05 KST" }}{{ end }}
+                {{- end }}
+                ```
+
+        # Future use
+        - name: 'discord-warning'
+          slack_configs:
+            - api_url_file: '/etc/alertmanager/secrets/alertmanager-discord-webhooks/warning-webhook-url'
+              send_resolved: true
+              title_link: 'https://grafana.goormgb.space/d/dLsDQIUnzb'
+              title: |-
+                [{{ or .CommonLabels.environment "unknown" }}] {{ if eq .Status "resolved" }}✅ 경고 복구 알림{{ else }}🟡 경고 알림{{ end }}
+              text: |-
+                ```text
+                🏷 알림        | {{ if eq .CommonLabels.alertname "DevHttp5xxDetected" }}HTTP 5xx 오류 감지{{ else }}{{ or .CommonLabels.alertname "N/A" }}{{ end }}
+                📦 네임스페이스 | {{ or .CommonLabels.namespace "N/A" }}
+                🔢 대상건수    | {{ len .Alerts }}
+                {{ with index .Alerts 0 -}}
+                🖥 인스턴스    | {{ or .Labels.instance .Labels.node "N/A" }}
+                🕒 발생(KST)   | {{ .StartsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05 KST" }}
+                {{ if eq $.Status "resolved" }}✅ 복구(KST)   | {{ .EndsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05 KST" }}{{ end }}
+                {{- end }}
+                ```
+
+        # Future use
+        - name: 'discord-info'
+          slack_configs:
+            - api_url_file: '/etc/alertmanager/secrets/alertmanager-discord-webhooks/info-webhook-url'
+              send_resolved: true
+              title_link: 'https://grafana.goormgb.space/d/cfevec81ezw8wc'
+              title: |-
+                [{{ or .CommonLabels.environment "unknown" }}] {{ if eq .Status "resolved" }}✅ 정보 처리 완료 알림{{ else }}🔵 정보 알림{{ end }}
+              text: |-
+                ```text
+                🏷 알림        | {{ if eq .CommonLabels.alertname "DevHttp5xxDetected" }}HTTP 5xx 오류 감지{{ else }}{{ or .CommonLabels.alertname "N/A" }}{{ end }}
+                📦 네임스페이스 | {{ or .CommonLabels.namespace "N/A" }}
+                🔢 대상건수    | {{ len .Alerts }}
+                {{ with index .Alerts 0 -}}
+                🖥 인스턴스    | {{ or .Labels.instance .Labels.node "N/A" }}
+                🕒 발생(KST)   | {{ .StartsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05 KST" }}
+                {{ if eq $.Status "resolved" }}✅ 종료(KST)   | {{ .EndsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05 KST" }}{{ end }}
+                {{- end }}
+                ```
+
+        - name: 'null'
+
+      inhibit_rules:
+        - source_match:
+            severity: 'critical'
+          target_match:
+            severity: 'warning'
+          equal: ['alertname', 'namespace']

@@ -1,0 +1,127 @@
+# kubeadm-dev - Istio 설정 (Helm values)
+# Domain: goormgb.space
+# Components: istio-base, istiod, istio-gateway, kiali
+
+# ===== Istio Base =====
+base:
+  global:
+    istioNamespace: istio-system
+
+# ===== Istiod =====
+istiod:
+  global:
+    istioNamespace: istio-system
+
+    # Sidecar Proxy 기본 리소스 설정
+    proxy:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+
+  meshConfig:
+    enableTracing: true
+    defaultConfig:
+      tracing:
+        sampling: 100 # 100% 샘플링 (kubeadm-dev 환경)
+        zipkin:
+          address: "tempo.monitoring.svc.cluster.local:9411"
+
+    # Access logging
+    accessLogFile: /dev/stdout
+
+    # External Authorization - 비활성화 (추후 Policy Controller 방식으로 전환)
+    # extensionProviders: []
+
+  pilot:
+    # CP 노드에 배치
+    nodeSelector:
+      kubernetes.io/hostname: control-plane-1
+    tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+    autoscaleEnabled: false
+    replicaCount: 1
+
+# ===== Shared Gateway =====
+# istio-ingressgateway는 istioctl로 설치됨 (scripts/istio/install.sh)
+# 여기서는 Gateway CRD만 생성
+
+# 공용 Gateway (인프라 서비스용)
+# api.dev.goormgb.space는 api-gateway에서 처리
+sharedGateway:
+  enabled: true
+  name: goormgb-gateway
+  tls:
+    credentialName: goormgb-tls
+  hosts:
+    - "argocd.goormgb.space"
+    - "cloudbeaver.goormgb.space"
+    - "grafana.goormgb.space"
+    - "kiali.goormgb.space"
+    - "redisinsight.goormgb.space"
+
+# ===== Kiali =====
+kiali-server:
+  server:
+    web_fqdn: kiali.goormgb.space
+    web_port: 443
+    web_schema: https
+
+  auth:
+    strategy: anonymous # 개발 환경용, OAuth 비활성화
+
+  deployment:
+    # CP 노드에 배치 (kiali chart는 snake_case 사용)
+    node_selector:
+      kubernetes.io/hostname: control-plane-1
+    tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+
+  external_services:
+    prometheus:
+      url: "http://prom-prometheus.monitoring.svc.cluster.local:9090"
+
+    grafana:
+      enabled: true
+      in_cluster_url: "http://grafana.monitoring.svc.cluster.local:80"
+      url: "https://grafana.goormgb.space"
+
+    tracing:
+      enabled: true
+      provider: tempo
+      in_cluster_url: "http://tempo.monitoring.svc.cluster.local:3100"
+      use_grpc: false
+
+# Kiali VirtualService (공용 Gateway 사용)
+kialiVirtualService:
+  enabled: true
+  host: "kiali.goormgb.space"
+
+# Kiali OIDC (Google OAuth) - 비활성화
+oidc:
+  enabled: false
+  secretManagerKey: dev/infra/oauth/google

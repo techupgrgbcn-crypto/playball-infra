@@ -1,0 +1,86 @@
+# kubeadm-dev - ArgoCD 설정
+# Domain: goormgb.space
+
+# CP 노드에 배치 (설정 관련)
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+gateway:
+  host: "argocd.goormgb.space"
+  tls:
+    enabled: true
+    credentialName: goormgb-tls
+
+# Google OAuth 설정 (admin + OAuth 둘 다 가능)
+oidc:
+  enabled: true
+  name: Google
+  issuer: https://accounts.google.com
+  secretManagerKey: dev/infra/oauth/google
+  requestedScopes:
+    - openid
+    - profile
+    - email
+
+# RBAC 설정 - ESO에서 허용된 사용자 목록 가져옴
+rbac:
+  eso:
+    enabled: true
+    secretManagerKey: dev/oauth/rbac/argocd
+  # 등록되지 않은 사용자는 접근 불가
+  defaultPolicy: role:none
+
+applications:
+  # === AI Service ===
+  # 1. AI Service Secrets (ExternalSecret → ai-service-config secret 생성)
+  - name: ai-service-secrets
+    namespace: dev-ai
+    repoURL: "git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git"
+    targetRevision: argocd-sync/dev
+    path: dev/charts/security/ai-service-secrets
+    valuesFile: values.yaml
+    enabled: true
+
+  # 2. Redis AI (AI Defense 세션 저장용)
+  - name: redis-ai
+    namespace: data
+    repoURL: "git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git"
+    targetRevision: argocd-sync/dev
+    path: dev/charts/data/redis-ai
+    valuesFile: values.yaml
+    enabled: true
+
+  # 3. AI Defense (Python FastAPI)
+  - name: ai-defense
+    namespace: dev-ai
+    repoURL: "git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git"
+    targetRevision: argocd-sync/dev
+    path: common-charts/apps/ai-service
+    valuesFile: ../../../dev/values/apps/values-ai-defense.yaml
+    enabled: true
+
+  # === Sample (비활성화) ===
+  - name: dev-sample
+    namespace: dev-webs
+    repoURL: "git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git"
+    targetRevision: argocd-sync/dev
+    path: common-charts/apps/java-service
+    valuesFile: ../../../dev/values/values-sample.yaml
+    enabled: false
+
+# Prometheus 메트릭 수집
+metrics:
+  enabled: true
+
+# ArgoCD Notifications - Discord 알림
+notifications:
+  enabled: true
+  discord:
+    eso:
+      enabled: true
+      secretManagerKey: dev/argocd/discord-webhook

@@ -1,0 +1,36 @@
+# OAuth2 Proxy - Swagger 인증용
+# swagger.dev.goormgb.space → OAuth2 Proxy → 실제 서비스
+
+replicaCount: 1
+
+# CP 노드에 배치 (보안 관련)
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+# Google OAuth 설정
+config:
+  cookieSecure: true
+  cookieDomain: ".dev.goormgb.space"
+
+# Upstream services
+upstreams:
+  apiGateway: "http://java-cloud-gateway.dev-webs.svc.cluster.local:8085"
+  aiDefense: "http://dev-ai-defense.dev-ai.svc.cluster.local:8000"
+
+# ESO - AWS Secrets Manager에서 OAuth credentials + 이메일 목록 가져옴
+eso:
+  enabled: true
+  secretKey: dev/infra/oauth/swagger
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi

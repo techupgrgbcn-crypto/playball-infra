@@ -1,0 +1,23 @@
+# ECR Credential Refresh - kubeadm-dev
+aws:
+  region: ap-northeast-2
+
+targetNamespaces:
+  - dev-webs
+  - dev-ai
+
+schedule: "0 */12 * * *"  # 12시간마다
+
+secretName: ecr-pull-secret
+
+awsCredentialsSecret:
+  name: ecr-aws-credentials
+  namespace: infra
+
+# CP 노드에 배치 (인프라 작업)
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"

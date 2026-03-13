@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-init
+data:
+  init-databases.sh: |
+    #!/bin/bash
+    set -e
+
+    # pg_stat_statements extension 활성화
+    echo "Creating pg_stat_statements extension..."
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+      CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+    EOSQL
+
+    {{- range .Values.databases }}
+    {{- /* Validate database name: alphanumeric, underscore, hyphen only */ -}}
+    {{- if not (regexMatch "^[a-zA-Z0-9_-]+$" .) }}
+    {{- fail (printf "Invalid database name: %s. Only alphanumeric, underscore, and hyphen allowed." .) }}
+    {{- end }}
+    echo "Creating database: {{ . }}"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+      CREATE DATABASE "{{ . }}";
+      GRANT CONNECT, CREATE ON DATABASE "{{ . }}" TO "$POSTGRES_USER";
+    EOSQL
+
+    # 각 DB에도 extension 설치
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" -d "{{ . }}" <<-EOSQL
+      CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+    EOSQL
+    {{- end }}
+
+    echo "All databases created successfully"

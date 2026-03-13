@@ -1,0 +1,79 @@
+{{/*
+Git Charts - Git 레포에서 참조하는 단일 source Applications
+*/}}
+{{- $git := .Values.git -}}
+{{- $project := .Values.project -}}
+{{- $destination := .Values.destination -}}
+
+{{- range $name, $chart := .Values.gitCharts }}
+{{- if $chart.enabled }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name }}
+  namespace: argocd
+  {{- if $chart.syncWave }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "{{ $chart.syncWave }}"
+  {{- end }}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: {{ $project }}
+  source:
+    repoURL: {{ $git.repoURL }}
+    targetRevision: {{ $git.targetRevision }}
+    path: {{ $chart.path }}
+    {{- if or $chart.valueFiles $chart.releaseName }}
+    helm:
+      {{- if $chart.releaseName }}
+      releaseName: {{ $chart.releaseName }}
+      {{- end }}
+      {{- if $chart.valueFiles }}
+      valueFiles:
+        {{- range $chart.valueFiles }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  destination:
+    server: {{ $destination.server }}
+    namespace: {{ $chart.namespace }}
+  {{- if $chart.ignoreDifferences }}
+  ignoreDifferences:
+    {{- range $chart.ignoreDifferences }}
+    - group: {{ .group | default "" | quote }}
+      kind: {{ .kind }}
+      {{- if .name }}
+      name: {{ .name }}
+      {{- end }}
+      {{- if .jsonPointers }}
+      jsonPointers:
+        {{- range .jsonPointers }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    {{- if $chart.retry }}
+    retry:
+      limit: {{ $chart.retry.limit }}
+      backoff:
+        duration: {{ $chart.retry.duration }}
+        maxDuration: {{ $chart.retry.maxDuration }}
+        factor: {{ $chart.retry.factor }}
+    {{- end }}
+    syncOptions:
+      - CreateNamespace=true
+      {{- if $chart.syncOptions }}
+      {{- range $chart.syncOptions }}
+      - {{ . }}
+      {{- end }}
+      {{- end }}
+{{- end }}
+{{- end }}

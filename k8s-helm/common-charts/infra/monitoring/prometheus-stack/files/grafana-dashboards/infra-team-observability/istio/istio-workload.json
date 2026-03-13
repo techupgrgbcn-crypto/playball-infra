@@ -1,0 +1,653 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Istio 서비스 메시 워크로드 모니터링 대시보드입니다. 요청량, 지연시간, 에러율 등 서비스 성능을 실시간으로 확인합니다. Envoy 사이드카 메트릭 기반.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "서비스 성능 요약 (RED Method)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 요청량 (Rate)\n\n**이 지표가 뭐예요?**\n초당 들어오는 요청 수입니다.\n\n**RED Method란?**\n서비스 모니터링의 핵심 지표:\n- **R**ate: 초당 요청 수\n- **E**rrors: 에러율\n- **D**uration: 지연시간\n\n**메트릭 출처:**\n`istio_requests_total` - Envoy가 수집\n\n**확인 명령어:**\n```bash\n# 특정 Pod의 Envoy 메트릭 직접 확인\nkubectl exec <pod> -c istio-proxy -- \\\n  curl -s localhost:15090/stats/prometheus | grep istio_requests\n\n# 서비스 토폴로지 시각화\nistioctl dashboard kiali\n```\n\n**활용 사례:**\n- 트래픽 패턴 파악\n- 용량 계획 수립\n- 이상 트래픽 감지",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "Requests/s",
+          "refId": "A"
+        }
+      ],
+      "title": "요청량 (Rate)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 에러율 (Errors)\n\n**이 지표가 뭐예요?**\n5xx 응답 비율입니다.\n\n**HTTP 상태 코드:**\n- **2xx**: 성공\n- **3xx**: 리다이렉트\n- **4xx**: 클라이언트 오류 (입력값 문제)\n- **5xx**: 서버 오류 (우리 책임!)\n\n**SLO 기준:**\n- 에러율 < 1%: 정상\n- 에러율 1-5%: 주의\n- 에러율 > 5%: 심각\n\n**5xx 에러 디버깅:**\n```bash\n# Envoy 액세스 로그 확인\nkubectl logs <pod> -c istio-proxy | grep '5[0-9][0-9]'\n\n# 애플리케이션 로그 확인\nkubectl logs <pod> -c <app-container>\n\n# 분산 트레이싱으로 원인 추적\nistioctl dashboard jaeger\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\", response_code=~\"5.*\"}[5m])) / sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) or vector(0)",
+          "legendFormat": "Error Rate",
+          "refId": "A"
+        }
+      ],
+      "title": "에러율 (5xx)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 지연시간 P50 (Duration)\n\n**이 지표가 뭐예요?**\n요청의 50%가 완료되는 시간입니다.\n\n**P50 (중앙값)이란?**\n절반의 요청이 이 시간 내에 완료됨\n\n**메트릭 출처:**\n`istio_request_duration_milliseconds`\n\n**지연시간 구성:**\n```\n[Client] --network--> [Envoy] --process--> [App] --process--> [Envoy] --network--> [Client]\n   |                    |                    |                    |                    |\n   +--------------------+--------------------+--------------------+--------------------+\n                               전체 지연시간\n```\n\n**디버깅 방법:**\n```bash\n# 분산 트레이싱으로 병목 구간 확인\nistioctl dashboard jaeger\n\n# Envoy 통계\nkubectl exec <pod> -c istio-proxy -- \\\n  curl -s localhost:15000/stats | grep request_duration\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.5 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.50, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (le)) / 1000",
+          "legendFormat": "P50",
+          "refId": "A"
+        }
+      ],
+      "title": "지연시간 P50",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 지연시간 P99\n\n**이 지표가 뭐예요?**\n요청의 99%가 완료되는 시간입니다.\n\n**P99가 중요한 이유:**\n- 대부분 요청은 P50에 가까움\n- 하지만 1%의 사용자는 P99를 경험\n- P99는 최악의 사용자 경험을 나타냄\n\n**Long-tail 문제 예시:**\nP50 = 50ms, P99 = 2s인 경우\n→ 대부분은 빠르지만 일부가 매우 느림\n→ 원인: GC, Cold Start, 외부 API 지연\n\n**SLO 권장값:**\n```yaml\nslo:\n  latency:\n    p50: 100ms\n    p99: 500ms\n    p999: 2s\n```\n\n**개선 방법:**\n- Connection pooling\n- 캐싱 도입\n- 비동기 처리\n- 타임아웃 설정",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 2 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (le)) / 1000",
+          "legendFormat": "P99",
+          "refId": "A"
+        }
+      ],
+      "title": "지연시간 P99",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "요청 분석",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 인바운드 요청 출처\n\n**이 지표가 뭐예요?**\n이 워크로드로 들어오는 요청의 출처입니다.\n\n**인바운드 vs 아웃바운드:**\n```\n[Other Service] --inbound--> [This Workload] --outbound--> [Another Service]\n```\n\n**라벨 설명:**\n- `source_workload`: 요청을 보낸 서비스\n- `source_workload_namespace`: 출처 네임스페이스\n\n**활용 사례:**\n- 의존성 관계 파악\n- 비정상 트래픽 출처 추적 (보안 분석)\n- 서비스 간 통신량 분석\n\n**시각화 도구:**\n```bash\n# Kiali로 서비스 그래프 확인\nistioctl dashboard kiali\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 5,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (source_workload)",
+          "legendFormat": "{{ source_workload }}",
+          "refId": "A"
+        }
+      ],
+      "title": "인바운드 요청 (출처별)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 응답 코드별 요청량\n\n**이 지표가 뭐예요?**\nHTTP 응답 코드별 요청량입니다.\n\n**주요 응답 코드:**\n- **200**: OK - 정상 처리\n- **201**: Created - 리소스 생성됨\n- **204**: No Content - 성공, 본문 없음\n- **301/302**: Redirect\n- **400**: Bad Request - 잘못된 요청\n- **401**: Unauthorized - 인증 필요\n- **403**: Forbidden - 권한 없음\n- **404**: Not Found - 리소스 없음\n- **429**: Too Many Requests - Rate Limit\n- **500**: Internal Server Error\n- **502**: Bad Gateway\n- **503**: Service Unavailable\n- **504**: Gateway Timeout\n\n**패턴 분석:**\n- 4xx 급증 → 클라이언트 문제 또는 설정 오류\n- 5xx 급증 → 서버/인프라 문제\n- 503 급증 → 서킷브레이커 동작",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "2.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byRegexp", "options": "4.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byRegexp", "options": "5.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 6,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (response_code)",
+          "legendFormat": "{{ response_code }}",
+          "refId": "A"
+        }
+      ],
+      "title": "응답 코드별 요청량",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "panels": [],
+      "title": "지연시간 상세",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 지연시간 백분위 추이\n\n**이 지표가 뭐예요?**\n지연시간의 백분위 분포 변화입니다.\n\n**백분위 설명:**\n```\nP50  일반적인 사용자 경험 (중앙값)\nP90  대부분의 사용자 경험\nP95  거의 모든 사용자 경험\nP99  최악의 사용자 경험\n```\n\n**정상적인 패턴:**\n- P50과 P99 간격이 좁음\n- 시간에 따라 안정적\n\n**문제 징후:**\n- P99가 P50보다 10배 이상 높음\n- 특정 시간대에 급등\n- 점진적으로 증가하는 추세\n\n**디버깅 방법:**\n```bash\n# 분산 트레이싱으로 느린 요청 분석\nistioctl dashboard jaeger\n\n# Envoy 엔드포인트 상태 확인\nistioctl proxy-config endpoint <pod>\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "id": 7,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.50, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (le)) / 1000", "legendFormat": "P50", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.90, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (le)) / 1000", "legendFormat": "P90", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (le)) / 1000", "legendFormat": "P95", "refId": "C" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (le)) / 1000", "legendFormat": "P99", "refId": "D" }
+      ],
+      "title": "지연시간 백분위 추이",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 지연시간 분포 히트맵\n\n**이 지표가 뭐예요?**\n지연시간 분포를 시각화한 히트맵입니다.\n\n**읽는 방법:**\n- X축: 시간\n- Y축: 지연시간\n- 색상: 해당 구간에 속하는 요청 수 (진할수록 많음)\n\n**정상 패턴:**\n- 낮은 지연시간에 색상이 집중 → 빠른 응답\n- 균일한 분포 → long-tail 없음\n- 가로줄 형태 → bimodal 분포 (두 가지 패턴)\n\n**bimodal 패턴 원인:**\n- 캐시 hit/miss\n- Cold/Warm start\n- 서로 다른 처리 경로\n\n**활용:**\n지연시간 SLO 설정 시 참고",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "continuous-GrYlRd" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "scaleDistribution": { "type": "linear" } },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "id": 8,
+      "options": {
+        "calculate": true,
+        "calculation": { "yBuckets": { "mode": "count", "scale": { "type": "linear" }, "value": "20" } },
+        "cellGap": 2,
+        "color": { "exponent": 0.5, "fill": "dark-orange", "mode": "scheme", "scale": "exponential", "scheme": "Spectral", "steps": 64 },
+        "exemplars": { "color": "rgba(255,0,255,0.7)" },
+        "filterValues": { "le": 1e-09 },
+        "legend": { "show": true },
+        "rowsFrame": { "layout": "auto" },
+        "tooltip": { "mode": "single", "showColorScale": false, "yHistogram": false },
+        "yAxis": { "axisPlacement": "left", "reverse": false }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m])) by (le)",
+          "format": "heatmap",
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "title": "지연시간 분포 히트맵",
+      "type": "heatmap"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 103,
+      "panels": [],
+      "title": "TCP 트래픽",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## TCP 연결 현황\n\n**이 지표가 뭐예요?**\n열린/닫힌 TCP 연결 수입니다.\n\n**TCP 연결 관리:**\nEnvoy의 Connection Pool이 관리합니다.\n\n**연결 증가 원인:**\n- TCP 커넥션 풀링 미사용\n- TLS 핸드셰이크 오버헤드\n- 짧은 연결 반복\n\n**DestinationRule 설정:**\n```yaml\napiVersion: networking.istio.io/v1beta1\nkind: DestinationRule\nspec:\n  trafficPolicy:\n    connectionPool:\n      tcp:\n        maxConnections: 100\n        connectTimeout: 30ms\n      http:\n        h2UpgradePolicy: UPGRADE\n        http1MaxPendingRequests: 100\n        http2MaxRequests: 1000\n```\n\n**분석 포인트:**\n- 열린 연결이 계속 증가 → 누수 의심\n- 닫힌 연결이 0 → 연결 유지 중?",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 9,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(istio_tcp_connections_opened_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m]))", "legendFormat": "열림 (Opened)", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(istio_tcp_connections_closed_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m]))", "legendFormat": "닫힘 (Closed)", "refId": "B" }
+      ],
+      "title": "TCP 연결 현황 (초당)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## TCP 처리량 (바이트)\n\n**이 지표가 뭐예요?**\nTCP로 송수신된 바이트입니다.\n\n**HTTP vs TCP 메트릭:**\n- `istio_requests_total` - HTTP 요청 수\n- `istio_tcp_*` - TCP 연결/바이트\n\n**TCP 메트릭이 필요한 경우:**\n- 데이터베이스 (MySQL, PostgreSQL)\n- 메시지 큐 (Kafka, RabbitMQ)\n- gRPC 스트리밍\n- 기타 비HTTP 프로토콜\n\n**분석 포인트:**\n- Sent/Received 비율 → 업/다운 트래픽 비율\n- 급격한 증가 → 대용량 데이터 전송\n\n**연결 풀 설정:**\n```yaml\napiVersion: networking.istio.io/v1beta1\nkind: DestinationRule\nspec:\n  trafficPolicy:\n    connectionPool:\n      tcp:\n        maxConnections: 100\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(istio_tcp_sent_bytes_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m]))", "legendFormat": "송신 (Sent)", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(istio_tcp_received_bytes_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[5m]))", "legendFormat": "수신 (Received)", "refId": "B" }
+      ],
+      "title": "TCP 처리량",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "id": 104,
+      "panels": [],
+      "title": "복원력 (Resiliency)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 재시도 횟수\n\n**이 지표가 뭐예요?**\nEnvoy가 자동 재시도한 횟수입니다.\n\n**재시도란?**\n요청 실패 시 자동으로 다시 시도하는 기능\n\n**VirtualService 설정:**\n```yaml\napiVersion: networking.istio.io/v1beta1\nkind: VirtualService\nspec:\n  http:\n  - retries:\n      attempts: 3\n      perTryTimeout: 2s\n      retryOn: gateway-error,connect-failure,retriable-4xx\n```\n\n**retryOn 옵션:**\n- `5xx` - 5xx 응답 시\n- `gateway-error` - 502, 503, 504\n- `connect-failure` - 연결 실패\n- `retriable-4xx` - 408, 409 등\n- `reset` - 연결 리셋\n\n**주의사항:**\n- POST 요청은 기본적으로 재시도 안 함\n- 멱등성 없는 요청 주의\n- 과도한 재시도는 부하 증가 (retry storm)",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 33 },
+      "id": 11,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(envoy_cluster_upstream_rq_retry{cluster_name=~\".*$workload.*\"}[5m]))", "legendFormat": "재시도", "refId": "A" }
+      ],
+      "title": "재시도 횟수",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 서킷브레이커 동작\n\n**이 지표가 뭐예요?**\n서킷브레이커 (장애 격리) 동작 횟수입니다.\n\n**서킷브레이커란?**\n장애가 전파되지 않도록 차단하는 패턴\n\n**상태 전이:**\n```\n[Closed] --실패 누적--> [Open] --시간 경과--> [Half-Open]\n    ^                                           |\n    +--------성공 시 복구 -------------------------+\n```\n\n**DestinationRule 설정:**\n```yaml\napiVersion: networking.istio.io/v1beta1\nkind: DestinationRule\nspec:\n  trafficPolicy:\n    outlierDetection:\n      consecutive5xxErrors: 5\n      interval: 10s\n      baseEjectionTime: 30s\n      maxEjectionPercent: 50\n```\n\n**설정 설명:**\n- `consecutive5xxErrors`: 연속 5xx 오류 횟수\n- `interval`: 분석 주기\n- `baseEjectionTime`: 제외 시간\n\n**Active Ejections가 많으면:**\n백엔드에 문제가 있다는 신호!",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 33 },
+      "id": 12,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(envoy_cluster_upstream_rq_pending_overflow{cluster_name=~\".*$workload.*\"}[5m]))", "legendFormat": "대기열 초과", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(envoy_cluster_outlier_detection_ejections_active{cluster_name=~\".*$workload.*\"})", "legendFormat": "제외된 엔드포인트", "refId": "B" }
+      ],
+      "title": "서킷브레이커 동작",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## 타임아웃 발생\n\n**이 지표가 뭐예요?**\n요청 타임아웃 발생 횟수입니다.\n\n**VirtualService 설정:**\n```yaml\napiVersion: networking.istio.io/v1beta1\nkind: VirtualService\nspec:\n  http:\n  - timeout: 3s\n    route:\n    - destination:\n        host: my-service\n```\n\n**타임아웃 종류:**\n- **Connection Timeout**: TCP 연결 시간\n- **Request Timeout**: 전체 요청 시간\n- **Idle Timeout**: 유휴 연결 시간\n\n**주의사항:**\n- Istio 기본 타임아웃: 무제한 (위험!)\n- 항상 명시적으로 설정 권장!\n\n**타임아웃 설정 전략:**\n1. 애플리케이션 타임아웃 설정\n2. 사이드카 타임아웃은 더 길게\n3. 게이트웨이 타임아웃은 가장 길게\n\n**타임아웃이 많으면:**\n- 백엔드 처리 지연\n- 네트워크 문제",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 33 },
+      "id": 13,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(envoy_cluster_upstream_rq_timeout{cluster_name=~\".*$workload.*\"}[5m]))", "legendFormat": "타임아웃", "refId": "A" }
+      ],
+      "title": "타임아웃 발생",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
+      "id": 105,
+      "panels": [],
+      "title": "gRPC (선택사항)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## gRPC 요청량\n\n**이 지표가 뭐예요?**\ngRPC 상태 코드별 요청량입니다.\n\n**gRPC란?**\n- Google이 만든 RPC 프레임워크\n- HTTP/2 기반\n- Protocol Buffers 직렬화\n- 양방향 스트리밍 지원\n\n**gRPC vs REST:**\n| 항목 | gRPC | REST |\n|------|------|------|\n| 프로토콜 | HTTP/2 | HTTP/1.1 |\n| 직렬화 | Protobuf | JSON |\n| 성능 | 빠름 | 상대적으로 느림 |\n| 브라우저 | 제한적 | 완전 지원 |\n\n**Istio에서 gRPC 라우팅:**\n```yaml\napiVersion: networking.istio.io/v1beta1\nkind: VirtualService\nspec:\n  http:  # gRPC도 http 섹션 사용!\n  - match:\n    - headers:\n        content-type:\n          prefix: application/grpc\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text",
+            "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0,
+            "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5,
+            "scaleDistribution": { "type": "linear" }, "showPoints": "never",
+            "spanNulls": false, "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
+      "id": 14,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\", request_protocol=\"grpc\"}[5m])) by (grpc_response_status)", "legendFormat": "gRPC {{ grpc_response_status }}", "refId": "A" }
+      ],
+      "title": "gRPC 상태 코드별 요청량",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "## gRPC 에러율\n\n**이 지표가 뭐예요?**\ngRPC 요청 중 에러 비율입니다.\n\n**gRPC 상태 코드:**\n| 코드 | 이름 | 설명 |\n|------|------|------|\n| 0 | OK | 성공 |\n| 1 | CANCELLED | 취소됨 |\n| 2 | UNKNOWN | 알 수 없는 오류 |\n| 3 | INVALID_ARGUMENT | 잘못된 인자 |\n| 4 | DEADLINE_EXCEEDED | 타임아웃 |\n| 5 | NOT_FOUND | 리소스 없음 |\n| 7 | PERMISSION_DENIED | 권한 없음 |\n| 13 | INTERNAL | 내부 오류 |\n| 14 | UNAVAILABLE | 서비스 불가 |\n\n**디버깅 방법:**\n```bash\n# gRPC 서비스 목록 확인\ngrpcurl -plaintext localhost:50051 list\n\n# Envoy에서 gRPC 로그 확인\nkubectl logs <pod> -c istio-proxy | grep grpc\n```",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 42 },
+      "id": 15,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\", request_protocol=\"grpc\", grpc_response_status!=\"0\"}[5m])) / sum(rate(istio_requests_total{destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\", request_protocol=\"grpc\"}[5m])) or vector(0)", "legendFormat": "gRPC Error Rate", "refId": "A" }
+      ],
+      "title": "gRPC 에러율",
+      "type": "stat"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["istio", "workload", "envoy"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "prometheus" },
+        "hide": 0, "includeAll": false, "label": "데이터소스", "multi": false,
+        "name": "datasource", "options": [], "query": "prometheus", "refresh": 1,
+        "regex": "", "skipUrlSync": false, "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "definition": "label_values(istio_requests_total, destination_workload_namespace)",
+        "hide": 0, "includeAll": true, "label": "네임스페이스", "multi": false,
+        "name": "namespace", "options": [],
+        "query": { "query": "label_values(istio_requests_total, destination_workload_namespace)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "definition": "label_values(istio_requests_total{destination_workload_namespace=~\"$namespace\"}, destination_workload)",
+        "hide": 0, "includeAll": true, "label": "워크로드", "multi": false,
+        "name": "workload", "options": [],
+        "query": { "query": "label_values(istio_requests_total{destination_workload_namespace=~\"$namespace\"}, destination_workload)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 2, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Istio 워크로드 모니터링",
+  "uid": "istio-workload",
+  "version": 1
+}

@@ -1,0 +1,103 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ddns-cloudflare-updater
+  labels:
+    app.kubernetes.io/name: ddns-cloudflare
+    app.kubernetes.io/component: infra
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: ddns-updater
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              env:
+                - name: CF_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: api-token
+                - name: CF_ZONE_ID
+                  value: {{ .Values.zoneID | quote }}
+                - name: DOMAIN
+                  value: {{ .Values.domain | quote }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+
+                  # Get current public IP
+                  CURRENT_IP=$(curl -sf --max-time 5 https://api.ipify.org) || \
+                  CURRENT_IP=$(curl -sf --max-time 5 https://checkip.amazonaws.com | tr -d '\n') || \
+                  CURRENT_IP=""
+
+                  if [ -z "$CURRENT_IP" ]; then
+                    echo "ERROR: Failed to get public IP"
+                    exit 1
+                  fi
+                  echo "Current public IP: $CURRENT_IP"
+
+                  # Records to update
+                  RECORDS="{{ range $i, $r := .Values.records }}{{ if $i }} {{ end }}{{ if eq $r "" }}@{{ else }}{{ $r }}{{ end }}{{ end }}"
+
+                  for RECORD in $RECORDS; do
+                    if [ "$RECORD" = "@" ]; then
+                      RECORD_NAME="${DOMAIN}"
+                    else
+                      RECORD_NAME="${RECORD}.${DOMAIN}"
+                    fi
+
+                    echo "Processing: $RECORD_NAME"
+
+                    # Get record ID
+                    RESPONSE=$(curl -sf -X GET \
+                      "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/dns_records?type=A&name=${RECORD_NAME}" \
+                      -H "Authorization: Bearer ${CF_API_TOKEN}" \
+                      -H "Content-Type: application/json")
+
+                    RECORD_ID=$(echo "$RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+                    if [ -z "$RECORD_ID" ]; then
+                      echo "WARNING: Record not found for $RECORD_NAME, skipping"
+                      continue
+                    fi
+
+                    # Get current IP in Cloudflare
+                    CF_IP=$(echo "$RESPONSE" | grep -o '"content":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+                    if [ "$CF_IP" = "$CURRENT_IP" ]; then
+                      echo "  $RECORD_NAME: IP unchanged ($CURRENT_IP)"
+                      continue
+                    fi
+
+                    echo "  $RECORD_NAME: Updating $CF_IP -> $CURRENT_IP"
+
+                    # Update record
+                    curl -sf -X PATCH \
+                      "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/dns_records/${RECORD_ID}" \
+                      -H "Authorization: Bearer ${CF_API_TOKEN}" \
+                      -H "Content-Type: application/json" \
+                      --data "{\"content\":\"${CURRENT_IP}\",\"ttl\":{{ $.Values.ttl | default 60 }}}" > /dev/null
+
+                    echo "  $RECORD_NAME: Updated!"
+                  done
+
+                  echo "DDNS update complete"

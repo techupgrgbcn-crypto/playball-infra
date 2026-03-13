@@ -1,0 +1,96 @@
+# Initial Job to create ECR credentials immediately (not waiting for cron)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ecr-creds-init
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: ecr-creds-refresher
+      restartPolicy: OnFailure
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: ecr-creds
+          image: amazon/aws-cli:latest
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.awsCredentialsSecret.name }}
+                  key: access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.awsCredentialsSecret.name }}
+                  key: secret-access-key
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.aws.region }}
+            - name: SECRET_NAME
+              value: {{ .Values.secretName }}
+            - name: TARGET_NAMESPACES
+              value: {{ .Values.targetNamespaces | join "," | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+              AWS_REGION=${AWS_DEFAULT_REGION:-ap-northeast-2}
+
+              echo "AWS Account: $AWS_ACCOUNT_ID, Region: $AWS_REGION"
+
+              TOKEN=$(aws ecr get-login-password --region $AWS_REGION)
+              DOCKER_SERVER="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+              curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
+
+              for NS in $(echo $TARGET_NAMESPACES | tr ',' ' '); do
+                echo "Updating ECR secret in namespace: $NS"
+                kubectl delete secret $SECRET_NAME -n $NS 2>/dev/null || true
+                kubectl create secret docker-registry $SECRET_NAME \
+                  --docker-server=$DOCKER_SERVER \
+                  --docker-username=AWS \
+                  --docker-password=$TOKEN \
+                  -n $NS
+                kubectl patch serviceaccount default -n $NS \
+                  -p '{"imagePullSecrets": [{"name": "'$SECRET_NAME'"}]}' || true
+                echo "Done: $NS"
+              done
+
+              # Update ArgoCD OCI repository credentials
+              echo "Updating ArgoCD ECR OCI repository credentials..."
+
+              kubectl apply -f - <<EOF
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: argocd-repo-ecr-helm
+                namespace: argocd
+                labels:
+                  argocd.argoproj.io/secret-type: repository
+              type: Opaque
+              stringData:
+                type: helm
+                name: ecr-helm
+                enableOCI: "true"
+                url: ${DOCKER_SERVER}
+                username: AWS
+                password: ${TOKEN}
+              EOF
+
+              echo "ArgoCD ECR credentials updated"
+              echo "ECR credentials initialized successfully"

@@ -1,0 +1,130 @@
+{{- if and .Values.enabled .Values.rateLimiting.global.enabled }}
+# ============================================================
+# Global Rate Limit (Redis 기반)
+# - 분산 환경에서 정확한 카운팅
+# - Envoy Rate Limit Service + Redis 사용
+# - Pod 수에 관계없이 일관된 제한
+# ============================================================
+
+---
+# ===========================================
+# 1. Rate Limit Service Cluster 정의
+# ===========================================
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ratelimit-global-cluster
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: ratelimit-global
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  configPatches:
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+      patch:
+        operation: ADD
+        value:
+          name: rate_limit_cluster
+          type: STRICT_DNS
+          connect_timeout: 1s
+          lb_policy: ROUND_ROBIN
+          http2_protocol_options: {}
+          load_assignment:
+            cluster_name: rate_limit_cluster
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: ratelimit.istio-system.svc.cluster.local
+                          port_value: 8081
+
+---
+# ===========================================
+# 2. Global Rate Limit 필터 추가
+# ===========================================
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ratelimit-global-filter
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: ratelimit-global
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
+            domain: {{ .Values.rateLimiting.global.domain }}
+            failure_mode_deny: false  # Rate Limit 서비스 장애 시 허용
+            enable_x_ratelimit_headers: DRAFT_VERSION_03
+            rate_limit_service:
+              grpc_service:
+                envoy_grpc:
+                  cluster_name: rate_limit_cluster
+                timeout: 0.25s
+              transport_api_version: V3
+
+---
+# ===========================================
+# 3. Route Config에 Rate Limit 액션 추가
+# ===========================================
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ratelimit-global-route
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: ratelimit-global
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  configPatches:
+    - applyTo: VIRTUAL_HOST
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            name: "*:443"
+      patch:
+        operation: MERGE
+        value:
+          rate_limits:
+            # IP별 제한
+            - actions:
+                - remote_address: {}
+            # 경로별 제한
+            - actions:
+                - request_headers:
+                    header_name: ":path"
+                    descriptor_key: path
+            # IP + 경로 조합
+            - actions:
+                - request_headers:
+                    header_name: ":path"
+                    descriptor_key: path
+                - remote_address: {}
+{{- end }}

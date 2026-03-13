@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ai-service
+description: AI service chart for goormgb (Python, Go, etc.)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

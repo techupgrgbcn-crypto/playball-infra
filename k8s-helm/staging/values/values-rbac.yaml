@@ -1,0 +1,12 @@
+# EKS Staging - Team RBAC Configuration
+# IAM 인증 사용 시 aws-auth ConfigMap에서 매핑된 username 사용
+
+clusterRoleName: team-viewer
+
+members:
+  - kind: User
+    name: team-member-1
+  - kind: User
+    name: team-member-2
+  - kind: User
+    name: team-member-3

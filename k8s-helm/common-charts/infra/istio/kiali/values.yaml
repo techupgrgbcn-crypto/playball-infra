@@ -1,0 +1,48 @@
+# Kiali - Service Mesh Observability
+# Requires Istio, Prometheus, Grafana, Tempo
+
+kiali-server:
+  auth:
+    strategy: anonymous  # 개발 환경용, prod에서는 openid 사용
+
+  deployment:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 512Mi
+
+  external_services:
+    prometheus:
+      url: "http://prom-prometheus.monitoring.svc.cluster.local:9090"
+
+    grafana:
+      enabled: true
+      in_cluster_url: "http://grafana.monitoring.svc.cluster.local:80"
+      url: ""  # values에서 override
+
+    tracing:
+      enabled: true
+      # Tempo 사용 - Grafana를 통해 트레이스 조회
+      provider: "tempo"
+      in_cluster_url: "http://tempo.monitoring.svc.cluster.local:3200"
+      use_grpc: false
+      url: ""  # values에서 override (Grafana URL)
+
+# Istio Gateway 설정
+gateway:
+  enabled: false
+  host: ""
+  tls:
+    credentialName: goormgb-tls
+
+# Node placement
+nodeSelector: {}
+tolerations: []
+
+# OIDC (Google OAuth)
+oidc:
+  enabled: false
+  secretManagerKey: ""  # AWS Secrets Manager key for client_secret

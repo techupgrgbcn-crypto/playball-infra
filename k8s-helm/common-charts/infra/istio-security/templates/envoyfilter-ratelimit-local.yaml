@@ -1,0 +1,283 @@
+{{- if and .Values.enabled .Values.rateLimiting.local.enabled }}
+# ============================================================
+# Local Rate Limit (Envoy 내장)
+# - Pod별 개별 카운트 (분산 환경에서 정확하지 않음)
+# - Redis 불필요, 빠른 1차 방어선
+# - 토큰 버킷 알고리즘 사용
+# ============================================================
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ratelimit-local
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: ratelimit-local
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  configPatches:
+    # ===========================================
+    # 1. Local Rate Limit 필터 추가
+    # ===========================================
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.local_ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            stat_prefix: http_local_rate_limiter
+
+            {{- if .Values.rateLimiting.local.default.enabled }}
+            # 기본 토큰 버킷 설정 (전체 요청에 적용)
+            token_bucket:
+              max_tokens: {{ .Values.rateLimiting.local.default.maxTokens }}
+              tokens_per_fill: {{ .Values.rateLimiting.local.default.tokensPerFill }}
+              fill_interval: {{ .Values.rateLimiting.local.default.fillInterval }}
+            {{- end }}
+
+            # Rate Limit 헤더 추가
+            response_headers_to_add:
+              {{- range .Values.rateLimiting.local.response.headers }}
+              - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                header:
+                  key: "{{ .name }}"
+                  value: "{{ .value }}"
+              {{- end }}
+              - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                header:
+                  key: "X-RateLimit-Remaining"
+                  value: "%DYNAMIC_METADATA(envoy.filters.http.local_ratelimit:tokens_remaining)%"
+
+            # 필터 활성화
+            filter_enabled:
+              runtime_key: local_rate_limit_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+
+            # Rate Limit 강제 적용
+            filter_enforced:
+              runtime_key: local_rate_limit_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+
+            # Rate Limit 상태 코드
+            status:
+              code: {{ .Values.rateLimiting.local.response.statusCode }}
+
+---
+# ===========================================
+# 2. Lua 기반 Rate Limit (IP별 + 경로별)
+# - Envoy 내장 local_ratelimit보다 세밀한 제어
+# - IP별 카운팅, 경로별 다른 제한
+# ===========================================
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ratelimit-lua
+  namespace: istio-system
+  labels:
+    app: istio-security
+    component: ratelimit-lua
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.selector.labels | nindent 6 }}
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua.ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            defaultSourceCode:
+              inlineString: |
+                -- Rate Limit Lua Filter
+                -- IP별, 경로별 Rate Limiting
+
+                local LOG_ENABLED = {{ .Values.rateLimiting.local.logging.enabled }}
+                local LOG_ONLY_LIMITED = {{ .Values.rateLimiting.local.logging.onlyLimited }}
+
+                -- 제외 경로
+                local EXCLUDE_PATHS = {
+                  {{- range .Values.rateLimiting.excludePaths }}
+                  "{{ . }}",
+                  {{- end }}
+                }
+
+                -- 경로별 Rate Limit 설정
+                local ROUTE_LIMITS = {
+                  {{- if .Values.rateLimiting.local.perRoute.enabled }}
+                  {{- range .Values.rateLimiting.local.perRoute.routes }}
+                  { path = "{{ .path }}", tokens = {{ .tokensPerFill }}, interval = "{{ .fillInterval }}", max = {{ .maxTokens }} },
+                  {{- end }}
+                  {{- end }}
+                }
+
+                -- IP별 기본 제한
+                local DEFAULT_TOKENS = {{ .Values.rateLimiting.local.perClient.tokensPerFill }}
+                local DEFAULT_MAX = {{ .Values.rateLimiting.local.perClient.maxTokens }}
+
+                -- 메모리 내 카운터 (Pod 재시작 시 초기화됨)
+                -- 실제 운영에서는 Redis 사용 권장
+                local ip_counters = {}
+                local ENTRY_TTL = 60  -- 각 항목 만료 시간 (초)
+                local last_gc = os.time()
+                local GC_INTERVAL = 30  -- GC 실행 간격 (초)
+
+                -- JSON 이스케이프 함수
+                local function json_escape(str)
+                  if str == nil then return "" end
+                  str = tostring(str)
+                  str = str:gsub('\\', '\\\\')
+                  str = str:gsub('"', '\\"')
+                  str = str:gsub('\n', '\\n')
+                  str = str:gsub('\r', '\\r')
+                  str = str:gsub('\t', '\\t')
+                  return str
+                end
+
+                -- 경로 제외 체크
+                local function is_excluded_path(path)
+                  for _, excluded in ipairs(EXCLUDE_PATHS) do
+                    if string.find(path, excluded, 1, true) then
+                      return true
+                    end
+                  end
+                  return false
+                end
+
+                -- 경로별 제한 찾기
+                local function get_route_limit(path)
+                  for _, route in ipairs(ROUTE_LIMITS) do
+                    if string.find(path, route.path, 1, true) then
+                      return route.tokens, route.max
+                    end
+                  end
+                  return DEFAULT_TOKENS, DEFAULT_MAX
+                end
+
+                -- 만료된 항목 정리 (점진적 GC)
+                local function gc_expired_entries()
+                  local now = os.time()
+                  if now - last_gc < GC_INTERVAL then
+                    return
+                  end
+                  last_gc = now
+
+                  -- 만료된 항목만 개별 삭제 (전체 리셋 대신)
+                  local keys_to_delete = {}
+                  for key, counter in pairs(ip_counters) do
+                    if now - counter.last_access > ENTRY_TTL then
+                      table.insert(keys_to_delete, key)
+                    end
+                  end
+
+                  for _, key in ipairs(keys_to_delete) do
+                    ip_counters[key] = nil
+                  end
+                end
+
+                -- Rate Limit 체크
+                local function check_rate_limit(client_ip, path)
+                  gc_expired_entries()
+
+                  local now = os.time()
+                  local limit, max_tokens = get_route_limit(path)
+                  local key = client_ip .. ":" .. path
+
+                  if ip_counters[key] == nil then
+                    ip_counters[key] = { count = 0, first_request = now, last_access = now }
+                  end
+
+                  local counter = ip_counters[key]
+                  counter.last_access = now  -- 접근 시간 갱신 (TTL용)
+
+                  local elapsed = now - counter.first_request
+
+                  -- 1초 경과 시 카운터 리셋 (개별 항목 슬라이딩 윈도우)
+                  if elapsed >= 1 then
+                    counter.count = 0
+                    counter.first_request = now
+                  end
+
+                  counter.count = counter.count + 1
+
+                  if counter.count > limit then
+                    return true, counter.count, limit  -- 제한됨
+                  end
+
+                  return false, counter.count, limit  -- 허용됨
+                end
+
+                -- 로그 출력
+                local function log_ratelimit(request_handle, client_ip, path, limited, count, limit)
+                  if not LOG_ENABLED then return end
+                  if LOG_ONLY_LIMITED and not limited then return end
+
+                  local log_entry = string.format(
+                    '{"timestamp":"%s","type":"ratelimit","client_ip":"%s","path":"%s","limited":%s,"count":%d,"limit":%d}',
+                    os.date("!%Y-%m-%dT%H:%M:%SZ"),
+                    json_escape(client_ip),
+                    json_escape(path),
+                    limited and "true" or "false",
+                    count,
+                    limit
+                  )
+                  request_handle:logWarn(log_entry)
+                end
+
+                function envoy_on_request(request_handle)
+                  local headers = request_handle:headers()
+                  local path = headers:get(":path") or ""
+                  local client_ip = headers:get("x-forwarded-for") or headers:get("x-real-ip") or "unknown"
+
+                  -- 첫 번째 IP만 추출
+                  client_ip = string.match(client_ip, "([^,]+)") or client_ip
+
+                  -- 제외 경로 체크
+                  if is_excluded_path(path) then
+                    return
+                  end
+
+                  -- Rate Limit 체크
+                  local limited, count, limit = check_rate_limit(client_ip, path)
+
+                  -- 로깅
+                  log_ratelimit(request_handle, client_ip, path, limited, count, limit)
+
+                  if limited then
+                    request_handle:respond(
+                      {
+                        [":status"] = "{{ .Values.rateLimiting.local.response.statusCode }}",
+                        ["Content-Type"] = "text/plain",
+                        ["Retry-After"] = "60",
+                        ["X-RateLimit-Limit"] = tostring(limit),
+                        ["X-RateLimit-Remaining"] = "0"
+                      },
+                      "{{ .Values.rateLimiting.local.response.body }}"
+                    )
+                  end
+                end
+{{- end }}

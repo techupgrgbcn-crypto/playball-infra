@@ -1,0 +1,22 @@
+{{- if .Values.members }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.clusterRoleName }}-binding
+  labels:
+    app.kubernetes.io/name: rbac
+    app.kubernetes.io/component: team-access
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.clusterRoleName }}
+subjects:
+  {{- range .Values.members }}
+  - kind: {{ .kind }}
+    name: {{ .name }}
+    {{- if .namespace }}
+    namespace: {{ .namespace }}
+    {{- end }}
+    apiGroup: rbac.authorization.k8s.io
+  {{- end }}
+{{- end }}

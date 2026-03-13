@@ -1,0 +1,457 @@
+# ECR OCI Registry
+ecr:
+  accountId: "123456789012"
+  region: "ap-northeast-2"
+
+# Git Repository
+git:
+  repoURL: git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git
+  targetRevision: argocd-sync/dev
+
+# ArgoCD Project
+project: default
+
+# Destination
+destination:
+  server: https://kubernetes.default.svc
+
+# =============================================================================
+# OCI Charts (ECR에서 직접 참조) - Multi-source Application
+# =============================================================================
+ociCharts:
+  istio-base:
+    enabled: true
+    chart: base
+    version: "1.29.1"
+    namespace: istio-system
+    syncWave: "-4"
+    valueFiles:
+      - $values/dev/values/istio/values-istio.yaml
+    ignoreDifferences:
+      - group: admissionregistration.k8s.io
+        kind: ValidatingWebhookConfiguration
+        jsonPointers:
+          - /webhooks/0/clientConfig/caBundle
+          - /webhooks/0/failurePolicy
+
+  istiod:
+    enabled: true
+    chart: istiod
+    version: "1.29.1"
+    namespace: istio-system
+    syncWave: "-3"
+    valueFiles:
+      - $values/dev/values/istio/values-istio.yaml
+    syncOptions:
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    ignoreDifferences:
+      - group: admissionregistration.k8s.io
+        kind: ValidatingWebhookConfiguration
+        jsonPointers:
+          - /webhooks/0/clientConfig/caBundle
+          - /webhooks/0/failurePolicy
+          - /webhooks/1/clientConfig/caBundle
+          - /webhooks/1/failurePolicy
+      - group: admissionregistration.k8s.io
+        kind: MutatingWebhookConfiguration
+        jsonPointers:
+          - /webhooks
+          - /metadata/resourceVersion
+      - group: apps
+        kind: Deployment
+        jsonPointers:
+          - /metadata/annotations/deployment.kubernetes.io~1revision
+          - /spec
+      - group: monitoring.coreos.com
+        kind: PodMonitor
+        jsonPointers:
+          - /spec/podMetricsEndpoints
+
+  kiali-server:
+    enabled: true
+    chart: kiali-server
+    version: "2.23.0"
+    namespace: istio-system
+    syncWave: "-1"
+    valueFiles:
+      - $values/dev/values/istio/values-kiali.yaml
+    syncOptions:
+      - RespectIgnoreDifferences=true
+    ignoreDifferences:
+      - group: ""
+        kind: ConfigMap
+        name: kiali
+        jsonPointers:
+          - /data
+      - group: apps
+        kind: Deployment
+        name: kiali
+        jsonPointers:
+          - /spec/template/metadata/annotations
+
+  tigera-operator:
+    enabled: true
+    chart: tigera-operator
+    version: "v3.29.3"
+    namespace: tigera-operator
+    syncWave: "-10"
+    valueFiles:
+      - $values/dev/values/core/values-calico.yaml
+    skipCrds: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+      - ServerSideApply=true
+    ignoreDifferences:
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        jqPathExpressions:
+          - .metadata.annotations
+          - .spec
+          - .status
+      - group: operator.tigera.io
+        kind: Installation
+        jsonPointers:
+          - /status
+          - /spec
+      - group: operator.tigera.io
+        kind: APIServer
+        jsonPointers:
+          - /status
+
+  loki:
+    enabled: true
+    chart: loki
+    version: "6.55.0"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - $values/dev/values/monitoring/values-loki.yaml
+    syncOptions:
+      - Replace=true
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/volumeName
+          - /spec/storageClassName
+
+  promtail:
+    enabled: true
+    chart: promtail
+    version: "6.17.1"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - $values/dev/values/monitoring/values-promtail.yaml
+
+  kube-prometheus-stack:
+    enabled: true
+    chart: kube-prometheus-stack
+    version: "82.10.3"
+    namespace: monitoring
+    syncWave: "-1"
+    valueFiles:
+      - $values/dev/values/monitoring/values-prometheus-stack.yaml
+    syncOptions:
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/volumeName
+          - /spec/storageClassName
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        jsonPointers:
+          - /status
+          - /spec/conversion
+          - /metadata/annotations
+      - group: ""
+        kind: Endpoints
+        jsonPointers:
+          - /metadata
+          - /subsets
+
+  external-secrets:
+    enabled: false  # Bootstrap에서 설치
+    chart: external-secrets
+    version: "2.1.0"
+    namespace: external-secrets
+    syncWave: "-9"
+    valueFiles: []
+
+  alloy:
+    enabled: false  # 프론트엔드 적용 전까지 비활성화
+    chart: alloy
+    version: "1.6.2"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - $values/dev/values/monitoring/values-alloy.yaml
+
+  k6-operator:
+    enabled: false  # 필요시 활성화
+    chart: k6-operator
+    version: "4.3.0"
+    namespace: k6-operator
+    syncWave: "0"
+    valueFiles: []
+
+# =============================================================================
+# Git Charts (Git 레포에서 참조) - 단일 source Application
+# =============================================================================
+gitCharts:
+  # === Core ===
+  namespaces:
+    enabled: true
+    path: common-charts/infra/namespaces
+    namespace: default
+    syncWave: "-10"
+    valueFiles:
+      - ../../../dev/values/core/values-namespaces.yaml
+
+  argocd-config:
+    enabled: true
+    path: common-charts/infra/argocd
+    namespace: argocd
+    valueFiles:
+      - ../../../dev/values/core/values-argocd.yaml
+
+  ddns-cloudflare:
+    enabled: true
+    path: dev/charts/core/ddns
+    namespace: infra
+    valueFiles:
+      - ../../../values/core/values-ddns.yaml
+
+  ecr-creds:
+    enabled: true
+    path: dev/charts/core/ecr-creds
+    namespace: infra
+    syncWave: "-8"
+    valueFiles:
+      - ../../../values/core/values-ecr-creds.yaml
+
+  # === Security ===
+  cert-manager-config:
+    enabled: true
+    path: dev/charts/security/cert-manager
+    namespace: cert-manager
+    syncWave: "-7"
+    valueFiles:
+      - ../../../values/security/values-cert-manager.yaml
+    ignoreDifferences:
+      - group: cert-manager.io
+        kind: ClusterIssuer
+        jsonPointers:
+          - /status
+
+  rbac:
+    enabled: true
+    path: common-charts/infra/rbac
+    namespace: default
+    valueFiles:
+      - ../../../dev/values/security/values-rbac.yaml
+
+  service-secrets:
+    enabled: true
+    path: dev/charts/security/service-secrets
+    namespace: dev-webs
+    syncWave: "-6"
+
+  oauth2-proxy:
+    enabled: true
+    path: dev/charts/security/oauth2-proxy
+    namespace: istio-system
+    syncWave: "-5"
+    valueFiles:
+      - ../../../values/security/values-oauth2-proxy.yaml
+
+  # === Istio ===
+  istio-gateway:
+    enabled: true
+    path: common-charts/infra/istio/gateway
+    namespace: istio-system
+    syncWave: "-2"
+    valueFiles:
+      - ../../../../dev/values/istio/values-istio.yaml
+
+  istio-security:
+    enabled: true
+    path: common-charts/infra/istio-security
+    namespace: istio-system
+    syncWave: "-1"
+    valueFiles:
+      - ../../../dev/values/istio/values-istio-security.yaml
+
+  # === OCI Chart Extras (추가 모니터링/설정) ===
+  istiod-monitoring:
+    enabled: true
+    path: common-charts/infra/istio/istiod
+    namespace: istio-system
+    syncWave: "-2"
+    valueFiles:
+      - ../../../../dev/values/istio/values-istio.yaml
+
+  kiali-config:
+    enabled: true
+    path: common-charts/infra/istio/kiali
+    namespace: istio-system
+    syncWave: "0"
+    valueFiles:
+      - ../../../../dev/values/istio/values-kiali.yaml
+
+  calico-config:
+    enabled: true
+    path: common-charts/infra/calico
+    namespace: calico-system
+    syncWave: "-9"
+    valueFiles:
+      - ../../../dev/values/core/values-calico.yaml
+    syncOptions:
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 5
+      duration: "10s"
+      maxDuration: "3m"
+      factor: 2
+
+  loki-backup:
+    enabled: true
+    path: common-charts/infra/monitoring/loki
+    namespace: monitoring
+    syncWave: "1"
+    valueFiles:
+      - ../../../../dev/values/monitoring/values-loki.yaml
+
+  prometheus-extras:
+    enabled: true
+    path: common-charts/infra/monitoring/prometheus-stack
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - ../../../../dev/values/monitoring/values-prometheus-stack.yaml
+
+  alloy-config:
+    enabled: false  # 프론트엔드 적용 전까지 비활성화
+    path: common-charts/infra/monitoring/alloy
+    namespace: monitoring
+    syncWave: "1"
+    valueFiles:
+      - ../../../../dev/values/monitoring/values-alloy.yaml
+
+  # === Monitoring ===
+  tempo:
+    enabled: true
+    path: common-charts/infra/monitoring/tempo
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - ../../../../dev/values/monitoring/values-monitoring.yaml
+
+  otel-collector:
+    enabled: true
+    path: common-charts/infra/monitoring/otel-collector
+    namespace: monitoring
+    syncWave: "1"
+    valueFiles:
+      - ../../../../dev/values/monitoring/values-otel-collector.yaml
+
+  # === Data ===
+  postgresql:
+    enabled: true
+    path: dev/charts/data/postgresql
+    namespace: data
+    syncWave: "-5"
+    valueFiles:
+      - ../../../values/data/values-data.yaml
+    retry:
+      limit: 5
+      duration: "10s"
+      maxDuration: "3m"
+      factor: 2
+
+  redis-cache:
+    enabled: true
+    path: dev/charts/data/redis
+    namespace: data
+    syncWave: "-5"
+    releaseName: redis-cache
+    valueFiles:
+      - ../../../values/data/values-redis-cache.yaml
+    retry:
+      limit: 5
+      duration: "10s"
+      maxDuration: "3m"
+      factor: 2
+
+  redis-queue:
+    enabled: true
+    path: dev/charts/data/redis
+    namespace: data
+    syncWave: "-5"
+    releaseName: redis-queue
+    valueFiles:
+      - ../../../values/data/values-redis-queue.yaml
+    retry:
+      limit: 5
+      duration: "10s"
+      maxDuration: "3m"
+      factor: 2
+
+  cloudbeaver:
+    enabled: true
+    path: dev/charts/data/cloudbeaver
+    namespace: data
+    valueFiles:
+      - ../../../values/data/values-cloudbeaver.yaml
+
+  redisinsight:
+    enabled: true
+    path: dev/charts/data/redisinsight
+    namespace: data
+    valueFiles:
+      - ../../../values/data/values-redisinsight.yaml
+
+# =============================================================================
+# ApplicationSets
+# =============================================================================
+applicationSets:
+  dev-webs-services:
+    enabled: true
+    syncWave: "10"
+    namespace: dev-webs
+    chartPath: common-charts/apps/java-service
+    valueFilesPattern: ../../../dev/values/apps/values-{{name}}.yaml
+    services:
+      - name: api-gateway
+      - name: auth-guard
+      - name: order-core
+      - name: queue
+      - name: recommendation
+      - name: seat
+
+  dev-ai-services:
+    enabled: true
+    syncWave: "10"
+    namespace: dev-ai
+    chartPath: common-charts/apps/ai-service
+    valueFilesPattern: ../../../dev/values/apps/values-{{name}}.yaml
+    services:
+      - name: ai-defense
+
+# =============================================================================
+# Raw Manifests (Gateway, VirtualService, EnvoyFilter)
+# =============================================================================
+rawManifests:
+  apiGateway:
+    enabled: true
+  swaggerGateway:
+    enabled: true
+  swagger403Redirect:
+    enabled: true
+  aiDefenseRoute:
+    enabled: true

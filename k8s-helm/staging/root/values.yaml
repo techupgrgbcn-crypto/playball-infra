@@ -1,0 +1,278 @@
+# ECR OCI Registry
+ecr:
+  accountId: "123456789012"
+  region: "ap-northeast-2"
+
+# Git Repository
+git:
+  repoURL: git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git
+  targetRevision: argocd-sync/staging
+
+# ArgoCD Project
+project: default
+
+# Destination
+destination:
+  server: https://kubernetes.default.svc
+
+# =============================================================================
+# OCI Charts (ECR에서 직접 참조) - Multi-source Application
+# =============================================================================
+ociCharts:
+  istio-base:
+    enabled: true
+    chart: base
+    version: "1.29.1"
+    namespace: istio-system
+    syncWave: "-4"
+    valueFiles:
+      - $values/staging/values/values-istio.yaml
+    ignoreDifferences:
+      - group: admissionregistration.k8s.io
+        kind: ValidatingWebhookConfiguration
+        jsonPointers:
+          - /webhooks/0/clientConfig/caBundle
+          - /webhooks/0/failurePolicy
+
+  istiod:
+    enabled: true
+    chart: istiod
+    version: "1.29.1"
+    namespace: istio-system
+    syncWave: "-3"
+    valueFiles:
+      - $values/staging/values/values-istio.yaml
+    syncOptions:
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    ignoreDifferences:
+      - group: admissionregistration.k8s.io
+        kind: ValidatingWebhookConfiguration
+        jsonPointers:
+          - /webhooks/0/clientConfig/caBundle
+          - /webhooks/0/failurePolicy
+          - /webhooks/1/clientConfig/caBundle
+          - /webhooks/1/failurePolicy
+      - group: admissionregistration.k8s.io
+        kind: MutatingWebhookConfiguration
+        jsonPointers:
+          - /webhooks
+          - /metadata/resourceVersion
+      - group: apps
+        kind: Deployment
+        jsonPointers:
+          - /metadata/annotations/deployment.kubernetes.io~1revision
+          - /spec
+      - group: monitoring.coreos.com
+        kind: PodMonitor
+        jsonPointers:
+          - /spec/podMetricsEndpoints
+
+  kiali-server:
+    enabled: false  # staging에서 필요시 활성화
+    chart: kiali-server
+    version: "2.23.0"
+    namespace: istio-system
+    syncWave: "-1"
+    valueFiles:
+      - $values/staging/values/values-istio.yaml
+
+  tigera-operator:
+    enabled: false  # EKS는 VPC CNI 사용
+    chart: tigera-operator
+    version: "v3.29.3"
+    namespace: tigera-operator
+    syncWave: "-10"
+    valueFiles: []
+
+  loki:
+    enabled: true
+    chart: loki
+    version: "6.55.0"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - $values/staging/values/values-monitoring.yaml
+    syncOptions:
+      - Replace=true
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/volumeName
+          - /spec/storageClassName
+
+  promtail:
+    enabled: true
+    chart: promtail
+    version: "6.17.1"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - $values/staging/values/values-monitoring.yaml
+
+  kube-prometheus-stack:
+    enabled: true
+    chart: kube-prometheus-stack
+    version: "82.10.3"
+    namespace: monitoring
+    syncWave: "-1"
+    valueFiles:
+      - $values/staging/values/values-monitoring.yaml
+    syncOptions:
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/volumeName
+          - /spec/storageClassName
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        jsonPointers:
+          - /status
+          - /spec/conversion
+          - /metadata/annotations
+      - group: ""
+        kind: Endpoints
+        jsonPointers:
+          - /metadata
+          - /subsets
+
+  external-secrets:
+    enabled: false  # EKS Blueprints에서 설치
+    chart: external-secrets
+    version: "2.1.0"
+    namespace: external-secrets
+    syncWave: "-9"
+    valueFiles: []
+
+  alloy:
+    enabled: false
+    chart: alloy
+    version: "1.6.2"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles: []
+
+  k6-operator:
+    enabled: false
+    chart: k6-operator
+    version: "4.3.0"
+    namespace: k6-operator
+    syncWave: "0"
+    valueFiles: []
+
+# =============================================================================
+# Git Charts (Git 레포에서 참조) - 단일 source Application
+# =============================================================================
+gitCharts:
+  # === Core ===
+  namespaces:
+    enabled: true
+    path: common-charts/infra/namespaces
+    namespace: default
+    syncWave: "-10"
+    valueFiles:
+      - ../../../staging/values/values-namespaces.yaml
+
+  # === Security ===
+  rbac:
+    enabled: true
+    path: common-charts/infra/rbac
+    namespace: default
+    valueFiles:
+      - ../../../staging/values/values-rbac.yaml
+
+  # === Istio ===
+  istio-gateway:
+    enabled: true
+    path: common-charts/infra/istio/gateway
+    namespace: istio-system
+    syncWave: "-2"
+    valueFiles:
+      - ../../../../staging/values/values-istio.yaml
+
+  istio-security:
+    enabled: true
+    path: common-charts/infra/istio-security
+    namespace: istio-system
+    syncWave: "-1"
+    valueFiles:
+      - ../../../staging/values/values-istio-security.yaml
+
+  # === OCI Chart Extras (추가 모니터링/설정) ===
+  istiod-monitoring:
+    enabled: true
+    path: common-charts/infra/istio/istiod
+    namespace: istio-system
+    syncWave: "-2"
+    valueFiles:
+      - ../../../../staging/values/values-istio.yaml
+
+  prometheus-extras:
+    enabled: true
+    path: common-charts/infra/monitoring/prometheus-stack
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - ../../../../staging/values/values-monitoring.yaml
+
+  loki-backup:
+    enabled: false  # staging에서 필요시 활성화
+    path: common-charts/infra/monitoring/loki
+    namespace: monitoring
+    syncWave: "1"
+    valueFiles:
+      - ../../../../staging/values/values-monitoring.yaml
+
+  # === Monitoring ===
+  tempo:
+    enabled: false  # staging에서 필요시 활성화
+    path: common-charts/infra/monitoring/tempo
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - ../../../../staging/values/values-monitoring.yaml
+
+  otel-collector:
+    enabled: false  # staging에서 필요시 활성화
+    path: common-charts/infra/monitoring/otel-collector
+    namespace: monitoring
+    syncWave: "1"
+    valueFiles:
+      - ../../../../staging/values/values-monitoring.yaml
+
+# =============================================================================
+# ApplicationSets
+# =============================================================================
+applicationSets:
+  staging-webs-services:
+    enabled: true
+    syncWave: "10"
+    namespace: staging-webs
+    chartPath: common-charts/apps/java-service
+    valueFilesPattern: ../../../staging/values/apps/values-{{name}}.yaml
+    services: []  # staging 서비스 추가 시 여기에
+
+  staging-ai-services:
+    enabled: true
+    syncWave: "10"
+    namespace: staging-ai
+    chartPath: common-charts/apps/ai-service
+    valueFilesPattern: ../../../staging/values/apps/values-{{name}}.yaml
+    services: []  # staging AI 서비스 추가 시 여기에
+
+# =============================================================================
+# Raw Manifests (Gateway, VirtualService, EnvoyFilter)
+# =============================================================================
+rawManifests:
+  apiGateway:
+    enabled: false  # staging에서 필요시 활성화
+  swaggerGateway:
+    enabled: false
+  swagger403Redirect:
+    enabled: false
+  aiDefenseRoute:
+    enabled: false

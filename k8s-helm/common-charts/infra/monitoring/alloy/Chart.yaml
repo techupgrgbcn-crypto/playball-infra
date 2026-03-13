@@ -1,0 +1,7 @@
+apiVersion: v2
+name: alloy-config
+description: Grafana Alloy additional configuration
+type: application
+version: 0.1.0
+appVersion: "1.14.0"
+# OCI dependency removed - using direct OCI reference in ArgoCD

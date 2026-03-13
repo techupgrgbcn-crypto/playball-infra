@@ -1,0 +1,14 @@
+# Alert rule set (dev, temporary)
+
+alertRules:
+  enabled: true
+  http5xxOnly:
+    enabled: true
+    alertName: DevHttp5xxDetected
+    environment: dev
+    namespace: ""
+    jobRegex: "(java-cloud-gateway|.*api-gateway.*|.*auth-guard.*|.*order-core.*|.*queue.*|.*recommendation.*|.*seat.*)"
+    lookback: 5m
+    for: 1m
+    threshold: 0
+    severity: critical

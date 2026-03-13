@@ -1,0 +1,32 @@
+{{- if .Values.sharedGateway.enabled }}
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.sharedGateway.name | default "goormgb-gateway" }}
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: {{ .Values.sharedGateway.tls.credentialName | default "goormgb-tls" }}
+      hosts:
+        {{- range .Values.sharedGateway.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        {{- range .Values.sharedGateway.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      tls:
+        httpsRedirect: true
+{{- end }}

@@ -1,0 +1,132 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: logs-daily-s3-backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          {{- with .Values.backup.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.backup.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: logs-backup-sa
+          containers:
+            - name: backup
+              image: alpine/k8s:1.31.4
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: logs-backup-s3
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: logs-backup-s3
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_DEFAULT_REGION
+                  value: ap-northeast-2
+                - name: S3_BUCKET
+                  value: {{ .Values.backup.s3Bucket }}
+                - name: S3_PREFIX
+                  value: {{ .Values.backup.s3Prefix }}
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+
+                  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+                  BACKUP_DIR="/tmp/logs-backup-${TIMESTAMP}"
+                  mkdir -p ${BACKUP_DIR}
+
+                  echo "=== Logs Backup Started ==="
+                  echo "Timestamp: ${TIMESTAMP}"
+                  echo ""
+
+                  # Application 로그 백업 (dev-webs namespace)
+                  echo "=== [1/3] Application Logs (dev-webs) ==="
+                  for pod in $(kubectl get pods -n dev-webs -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+                    echo "Backing up: ${pod}"
+                    kubectl logs -n dev-webs ${pod} --all-containers --timestamps 2>/dev/null > ${BACKUP_DIR}/dev-webs_${pod}.log || true
+                  done
+
+                  # Istio 로그 백업 (istio-system namespace)
+                  echo ""
+                  echo "=== [2/3] Istio Logs (istio-system) ==="
+                  for pod in $(kubectl get pods -n istio-system -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+                    echo "Backing up: ${pod}"
+                    kubectl logs -n istio-system ${pod} --all-containers --timestamps 2>/dev/null > ${BACKUP_DIR}/istio-system_${pod}.log || true
+                  done
+
+                  # Istio Access 로그 (istio-proxy sidecar)
+                  echo ""
+                  echo "=== [3/3] Istio Access Logs (sidecars) ==="
+                  for pod in $(kubectl get pods -n dev-webs -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+                    echo "Backing up istio-proxy: ${pod}"
+                    kubectl logs -n dev-webs ${pod} -c istio-proxy --timestamps 2>/dev/null > ${BACKUP_DIR}/istio-access_${pod}.log || true
+                  done
+
+                  # 압축 및 S3 업로드
+                  echo ""
+                  echo "=== Compressing and Uploading ==="
+                  cd /tmp
+                  tar -czvf logs-${TIMESTAMP}.tar.gz logs-backup-${TIMESTAMP}/
+
+                  aws s3 cp logs-${TIMESTAMP}.tar.gz s3://${S3_BUCKET}/${S3_PREFIX}/logs-${TIMESTAMP}.tar.gz
+
+                  # 정리
+                  rm -rf ${BACKUP_DIR} logs-${TIMESTAMP}.tar.gz
+
+                  echo ""
+                  echo "=== Backup Complete ==="
+                  echo "Uploaded: s3://${S3_BUCKET}/${S3_PREFIX}/logs-${TIMESTAMP}.tar.gz"
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: logs-backup-sa
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: logs-backup-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: logs-backup-rolebinding
+subjects:
+  - kind: ServiceAccount
+    name: logs-backup-sa
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: logs-backup-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

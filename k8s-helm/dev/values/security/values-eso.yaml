@@ -1,0 +1,21 @@
+# External Secrets Operator Configuration for kubeadm-dev
+# ClusterSecretStore settings for AWS Secrets Manager
+
+# CP 노드에 배치 (설정 관련)
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+clusterSecretStore:
+  enabled: true
+  name: aws-secrets-manager
+  region: ap-northeast-2
+
+serviceAccount:
+  # ESO SA for IRSA (if using EKS) or static credentials
+  name: external-secrets-sa
+  namespace: external-secrets
