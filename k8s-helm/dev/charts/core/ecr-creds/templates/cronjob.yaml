@@ -86,16 +86,16 @@ spec:
                   apiVersion: v1
                   kind: Secret
                   metadata:
-                    name: argocd-repo-ecr-helm
+                    name: ecr-helm-creds
                     namespace: argocd
                     labels:
-                      argocd.argoproj.io/secret-type: repository
+                      argocd.argoproj.io/secret-type: repo-creds
                   type: Opaque
                   stringData:
                     type: helm
                     name: ecr-helm
                     enableOCI: "true"
-                    url: ${DOCKER_SERVER}
+                    url: oci://${DOCKER_SERVER}
                     username: AWS
                     password: ${TOKEN}
                   EOF

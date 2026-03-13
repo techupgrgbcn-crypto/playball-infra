@@ -34,10 +34,11 @@ tigera-operator:
           encapsulation: VXLANCrossSubnet
           natOutgoing: Enabled
           nodeSelector: all()
+      # WireGuard(wg0) IP 대신 실제 LAN IP 사용
       nodeAddressAutodetectionV4:
         firstFound: false
         cidrs:
-          - 10.0.0.0/24
+          - "10.0.0.0/24"
     # Felix 메트릭 활성화 (Prometheus 스크래핑용)
     nodeMetricsPort: 9091
 

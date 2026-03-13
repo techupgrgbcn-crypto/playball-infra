@@ -438,43 +438,19 @@ jwtAuth:
   # 이 경로들은 토큰 없이도 401 안 남!
   # ============================================================
   publicPaths:
-    # --- 인증 관련 (당연히 토큰 없이 접근) ---
+    # --- 인증 관련 (토큰 발급 전이니까 당연히 필요) ---
     - "/auth/*"                    # 로그인, 토큰 발급 등
     - "/oauth/*"                   # OAuth 콜백
-    - "/login"
-    - "/signup"
-    - "/api/auth/*"
 
-    # --- 헬스체크 (k8s, 로드밸런서) ---
+    # --- 헬스체크 (k8s probe, ALB 헬스체크) ---
+    # dev 환경에서만 열어둠 (staging/prod는 내부에서만 접근)
     - "/health"
     - "/healthz"
     - "/ready"
     - "/readyz"
     - "/actuator/health"
-    - "/actuator/info"
 
-    # --- 메트릭 (Prometheus) ---
-    - "/metrics"
-    - "/actuator/prometheus"
-
-    # --- 공개 API (비로그인 사용자도 접근) ---
-    - "/api/public/*"              # 명시적 공개 API
-    - "/order/clubs"               # 골프장 목록 조회 (공개)
-    - "/order/clubs/*/info"        # 골프장 상세 정보 (공개)
-    - "/order/matches"             # 매치 목록 (공개)
-
-    # --- 정적 리소스 ---
-    - "/static/*"
-    - "/assets/*"
-    - "/favicon.ico"
-    - "/robots.txt"
-
-    # --- Swagger/API 문서 ---
-    - "/swagger-ui/*"
-    - "/v3/api-docs/*"
-    - "/api-docs/*"
-
-    # --- Grafana (별도 인증 사용) ---
+    # --- Grafana (별도 인증 체계 사용) ---
     - "/grafana/*"
 
   # ============================================================

@@ -1,0 +1,48 @@
+# Grafana Tempo - Dev 환경
+# OCI 직접 배포용 (prefix 없음)
+# 분산 추적 - Grafana에서 datasource로 연결해서 사용
+
+# 단일 바이너리 모드 (dev 환경)
+tempo:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 768Mi
+
+  # 트레이스 수신 설정
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+  # 로컬 스토리지 (dev)
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+      block:
+        bloom_filter_false_positive: 0.05
+
+  # 보존 기간
+  retention: 48h  # 2일
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+# CP 노드에 배치
+nodeSelector:
+  kubernetes.io/hostname: control-plane-1
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"

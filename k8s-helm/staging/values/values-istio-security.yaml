@@ -96,3 +96,144 @@ denyPaths:
 # External Authorization (AI Defense) - 비활성화
 extAuthz:
   enabled: false
+
+# ============================================================
+# Rate Limiting 설정
+# ============================================================
+rateLimiting:
+  # --- Local Rate Limit (Envoy 내장) ---
+  local:
+    enabled: true
+
+    # 기본 설정 (전체 경로에 적용)
+    default:
+      enabled: true
+      tokensPerFill: 100        # 초당 100 요청
+      fillInterval: 1s
+      maxTokens: 100
+
+    # IP별 제한
+    perClient:
+      enabled: true
+      tokensPerFill: 50         # IP당 초당 50 요청
+      fillInterval: 1s
+      maxTokens: 100
+
+    # 경로별 제한
+    perRoute:
+      enabled: true
+      routes:
+        - path: "/auth/"
+          tokensPerFill: 10
+          fillInterval: 1s
+          maxTokens: 20
+        - path: "/payment/"
+          tokensPerFill: 5
+          fillInterval: 1s
+          maxTokens: 10
+        - path: "/signup"
+          tokensPerFill: 3
+          fillInterval: 1s
+          maxTokens: 5
+
+    response:
+      statusCode: 429
+      body: "Too Many Requests"
+      headers:
+        - name: "Retry-After"
+          value: "60"
+        - name: "X-RateLimit-Limit"
+          value: "100"
+
+    logging:
+      enabled: true
+      onlyLimited: true
+
+  # --- Global Rate Limit (Redis 기반) ---
+  global:
+    enabled: false    # EKS에서 ElastiCache 설정 후 활성화
+
+  # 제외 경로
+  excludePaths:
+    - "/health"
+    - "/healthz"
+    - "/ready"
+    - "/metrics"
+    - "/actuator/health"
+
+# ============================================================
+# JWT 인증 설정
+# ============================================================
+jwtAuth:
+  enabled: true
+
+  issuers:
+    # Kakao OAuth
+    - name: kakao
+      issuer: "https://kauth.kakao.com"
+      jwksUri: "https://kauth.kakao.com/.well-known/jwks.json"
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+
+    # 자체 Auth 서비스 (staging 네임스페이스)
+    - name: goormgb-auth
+      issuer: "https://auth.goormgb.com"
+      jwksUri: "http://auth-guard.staging-webs.svc.cluster.local:8080/.well-known/jwks.json"
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+
+  forwardOriginalToken: true
+
+  # 공개 경로 (JWT 불필요)
+  publicPaths:
+    # 인증 관련
+    - "/auth/*"
+    - "/oauth/*"
+    - "/login"
+    - "/signup"
+    - "/api/auth/*"
+
+    # 헬스체크
+    - "/health"
+    - "/healthz"
+    - "/ready"
+    - "/readyz"
+    - "/actuator/health"
+    - "/actuator/info"
+
+    # 메트릭
+    - "/metrics"
+    - "/actuator/prometheus"
+
+    # 공개 API
+    - "/api/public/*"
+    - "/order/clubs"
+    - "/order/clubs/*/info"
+    - "/order/matches"
+
+    # 정적 리소스
+    - "/static/*"
+    - "/assets/*"
+    - "/favicon.ico"
+    - "/robots.txt"
+
+    # Swagger/API 문서
+    - "/swagger-ui/*"
+    - "/v3/api-docs/*"
+    - "/api-docs/*"
+
+    # Grafana (별도 인증)
+    - "/grafana/*"
+
+  # 인증 필수 경로
+  protectedPaths:
+    - "/api/user/*"
+    - "/api/booking/*"
+    - "/api/payment/*"
+    - "/order/reservations/*"
+    - "/order/my/*"
+
+  unauthorizedResponse:
+    enabled: true

@@ -97,3 +97,9 @@ denyPaths:
 # 추후 Policy Controller 방식으로 전환 예정
 extAuthz:
   enabled: false
+
+# JWT 인증 - 비활성화
+# auth-guard가 JWKS 엔드포인트(/.well-known/jwks.json)를 제공하지 않아
+# Istio에서 JWT 검증 불가 → 백엔드(Spring Cloud Gateway)에서 자체 처리
+jwtAuth:
+  enabled: false

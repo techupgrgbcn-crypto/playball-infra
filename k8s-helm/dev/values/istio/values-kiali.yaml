@@ -1,0 +1,21 @@
+# Kiali Server values (OCI chart)
+# https://github.com/kiali/helm-charts
+
+server:
+  web_root: /kiali
+
+external_services:
+  prometheus:
+    url: http://kube-prometheus-stack-prometheus.monitoring:9090
+  grafana:
+    enabled: true
+    in_cluster_url: http://kube-prometheus-stack-grafana.monitoring:80
+    url: https://grafana.goormgb.space
+  tracing:
+    enabled: true
+    in_cluster_url: http://tempo.monitoring:3100
+
+# kiali-config (Git chart) values
+kialiVirtualService:
+  enabled: true
+  host: kiali.goormgb.space

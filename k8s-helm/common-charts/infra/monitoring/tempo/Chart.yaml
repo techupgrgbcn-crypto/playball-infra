@@ -1,11 +1,10 @@
+# Grafana Tempo
+# OCI dependency removed - using direct OCI reference in ArgoCD
+# ECR: oci://123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/helm/tempo
 apiVersion: v2
-name: tempo
-description: Grafana Tempo for distributed tracing
+name: tempo-extras
+description: Grafana Tempo extras (if needed)
 type: application
 version: 1.0.0
 appVersion: "2.6.0"
-
-dependencies:
-  - name: tempo
-    version: "1.10.3"
-    repository: https://grafana.github.io/helm-charts
+# NOTE: tempo chart is deployed directly via OCI in ArgoCD

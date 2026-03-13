@@ -200,6 +200,30 @@ ociCharts:
     syncWave: "0"
     valueFiles: []
 
+  tempo:
+    enabled: true
+    chart: tempo
+    version: "1.10.3"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - $values/dev/values/monitoring/values-tempo.yaml
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/volumeName
+          - /spec/storageClassName
+
+  opentelemetry-collector:
+    enabled: true
+    chart: opentelemetry-collector
+    version: "0.85.0"
+    namespace: monitoring
+    syncWave: "1"
+    valueFiles:
+      - $values/dev/values/monitoring/values-opentelemetry-collector.yaml
+
 # =============================================================================
 # Git Charts (Git 레포에서 참조) - 단일 source Application
 # =============================================================================
@@ -344,21 +368,8 @@ gitCharts:
       - ../../../../dev/values/monitoring/values-alloy.yaml
 
   # === Monitoring ===
-  tempo:
-    enabled: true
-    path: common-charts/infra/monitoring/tempo
-    namespace: monitoring
-    syncWave: "0"
-    valueFiles:
-      - ../../../../dev/values/monitoring/values-monitoring.yaml
-
-  otel-collector:
-    enabled: true
-    path: common-charts/infra/monitoring/otel-collector
-    namespace: monitoring
-    syncWave: "1"
-    valueFiles:
-      - ../../../../dev/values/monitoring/values-otel-collector.yaml
+  # tempo: OCI로 이동 (ociCharts.tempo)
+  # otel-collector: OCI로 이동 (ociCharts.opentelemetry-collector)
 
   # === Data ===
   postgresql:

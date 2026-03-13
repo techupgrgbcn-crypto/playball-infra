@@ -118,7 +118,7 @@ ociCharts:
     namespace: monitoring
     syncWave: "-1"
     valueFiles:
-      - $values/staging/values/values-monitoring.yaml
+      - $values/staging/values/values-prometheus-stack.yaml
     syncOptions:
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
@@ -163,6 +163,30 @@ ociCharts:
     namespace: k6-operator
     syncWave: "0"
     valueFiles: []
+
+  tempo:
+    enabled: false  # staging에서 필요시 활성화
+    chart: tempo
+    version: "1.10.3"
+    namespace: monitoring
+    syncWave: "0"
+    valueFiles:
+      - $values/staging/values/values-tempo.yaml
+    ignoreDifferences:
+      - group: ""
+        kind: PersistentVolumeClaim
+        jsonPointers:
+          - /spec/volumeName
+          - /spec/storageClassName
+
+  opentelemetry-collector:
+    enabled: false  # staging에서 필요시 활성화
+    chart: opentelemetry-collector
+    version: "0.85.0"
+    namespace: monitoring
+    syncWave: "1"
+    valueFiles:
+      - $values/staging/values/values-opentelemetry-collector.yaml
 
 # =============================================================================
 # Git Charts (Git 레포에서 참조) - 단일 source Application
@@ -217,7 +241,7 @@ gitCharts:
     namespace: monitoring
     syncWave: "0"
     valueFiles:
-      - ../../../../staging/values/values-monitoring.yaml
+      - ../../../../staging/values/values-prometheus-stack.yaml
 
   loki-backup:
     enabled: false  # staging에서 필요시 활성화
@@ -228,21 +252,8 @@ gitCharts:
       - ../../../../staging/values/values-monitoring.yaml
 
   # === Monitoring ===
-  tempo:
-    enabled: false  # staging에서 필요시 활성화
-    path: common-charts/infra/monitoring/tempo
-    namespace: monitoring
-    syncWave: "0"
-    valueFiles:
-      - ../../../../staging/values/values-monitoring.yaml
-
-  otel-collector:
-    enabled: false  # staging에서 필요시 활성화
-    path: common-charts/infra/monitoring/otel-collector
-    namespace: monitoring
-    syncWave: "1"
-    valueFiles:
-      - ../../../../staging/values/values-monitoring.yaml
+  # tempo: OCI로 이동 (ociCharts.tempo)
+  # otel-collector: OCI로 이동 (ociCharts.opentelemetry-collector)
 
 # =============================================================================
 # ApplicationSets
