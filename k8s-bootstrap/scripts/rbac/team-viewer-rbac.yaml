@@ -1,0 +1,45 @@
+---
+# team-viewer 그룹에 클러스터 전체 읽기 권한 부여
+# team-member-1, team-member-3, team-member-2 등 팀원용
+#
+# 적용: kubectl apply -f scripts/rbac/team-viewer-rbac.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team-viewer
+rules:
+  # 모든 리소스 읽기 (k9s에서 볼 수 있도록)
+  - apiGroups: ["", "apps", "batch", "extensions", "networking.k8s.io", "policy", "autoscaling"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # CRD 리소스들 (ArgoCD, Istio, Prometheus 등)
+  - apiGroups: ["argoproj.io", "networking.istio.io", "security.istio.io", "monitoring.coreos.com", "cert-manager.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # 노드 상태 확인
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Pod 로그 확인
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  # Pod exec (디버깅용, 필요시 제거)
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: team-viewer-binding
+subjects:
+  - kind: Group
+    name: team-viewer
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: team-viewer
+  apiGroup: rbac.authorization.k8s.io

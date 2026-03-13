@@ -1,0 +1,48 @@
+# kubeadm 컨트롤 플레인 Endpoints
+# kube-prometheus-stack이 Service는 생성하지만 kubeadm에서는 Endpoints가 자동 생성되지 않음
+# ArgoCD가 Endpoints를 exclude하므로 bootstrap에서 직접 관리
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: prom-kube-etcd
+  namespace: kube-system
+  labels:
+    app: kube-prometheus-stack-kube-etcd
+    release: prometheus-stack
+subsets:
+  - addresses:
+      - ip: 10.0.0.10
+    ports:
+      - name: http-metrics
+        port: 2381
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: prom-kube-controller-manager
+  namespace: kube-system
+  labels:
+    app: kube-prometheus-stack-kube-controller-manager
+    release: prometheus-stack
+subsets:
+  - addresses:
+      - ip: 10.0.0.10
+    ports:
+      - name: http-metrics
+        port: 10257
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: prom-kube-scheduler
+  namespace: kube-system
+  labels:
+    app: kube-prometheus-stack-kube-scheduler
+    release: prometheus-stack
+subsets:
+  - addresses:
+      - ip: 10.0.0.10
+    ports:
+      - name: http-metrics
+        port: 10259

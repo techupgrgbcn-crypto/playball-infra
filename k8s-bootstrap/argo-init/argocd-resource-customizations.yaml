@@ -1,0 +1,56 @@
+# ArgoCD Resource Customizations
+# Calico/Tigera 리소스 health check 추가
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Calico Installation health check
+  resource.customizations.health.operator.tigera.io_Installation: |
+    hs = {}
+    if obj.status ~= nil then
+      if obj.status.conditions ~= nil then
+        for i, condition in ipairs(obj.status.conditions) do
+          if condition.type == "Ready" and condition.status == "True" then
+            hs.status = "Healthy"
+            hs.message = condition.message or "Ready"
+            return hs
+          end
+          if condition.type == "Degraded" and condition.status == "True" then
+            hs.status = "Degraded"
+            hs.message = condition.message
+            return hs
+          end
+        end
+      end
+    end
+    hs.status = "Progressing"
+    hs.message = "Waiting for Installation to be ready"
+    return hs
+
+  # Calico APIServer health check
+  resource.customizations.health.operator.tigera.io_APIServer: |
+    hs = {}
+    if obj.status ~= nil then
+      if obj.status.conditions ~= nil then
+        for i, condition in ipairs(obj.status.conditions) do
+          if condition.type == "Ready" and condition.status == "True" then
+            hs.status = "Healthy"
+            hs.message = condition.message or "Ready"
+            return hs
+          end
+          if condition.type == "Degraded" and condition.status == "True" then
+            hs.status = "Degraded"
+            hs.message = condition.message
+            return hs
+          end
+        end
+      end
+    end
+    hs.status = "Progressing"
+    hs.message = "Waiting for APIServer to be ready"
+    return hs

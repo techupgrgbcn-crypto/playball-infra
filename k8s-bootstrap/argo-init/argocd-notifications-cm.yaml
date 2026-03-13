@@ -1,0 +1,204 @@
+# ArgoCD Notifications ConfigMap
+# Discord로 배포 알림 전송
+#
+# 사전 준비:
+# 1. external-secret-discord.yaml 적용
+# 2. argocd-notifications-secret 생성 확인
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  # Discord Webhook 서비스 정의 - 앱 배포용
+  service.webhook.discord: |
+    url: $discord-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # Discord Webhook 서비스 정의 - 인프라용
+  service.webhook.discord-infra: |
+    url: $discord-webhook-infra-url
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # 기본 구독 설정 (defaultTriggers가 적용된 앱들에 알림 전송)
+  # 중요: 'discord'가 아닌 'webhook:discord'를 사용해야 함
+  subscriptions: |
+    - recipients:
+        - webhook:discord
+      triggers:
+        - on-sync-running
+        - on-deployed
+        - on-deploy-failed
+        - on-health-degraded
+
+  # 템플릿: 배포 성공 (toJson으로 JSON 인젝션 방지)
+  template.app-deployed: |
+    webhook:
+      discord:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{ printf "✅ %s 배포 성공" .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 배포 완료\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "color": 3066993,
+              "fields": [
+                {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
+                {"name": "Revision", "value": {{ .app.status.sync.revision | substr 0 7 | toJson }}, "inline": true}
+              ],
+              "timestamp": {{ .app.status.operationState.finishedAt | toJson }}
+            }]
+          }
+
+  # 템플릿: 배포 실패
+  template.app-deploy-failed: |
+    webhook:
+      discord:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{ printf "❌ %s 배포 실패" .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 배포 실패\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "color": 15158332,
+              "fields": [
+                {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
+                {"name": "Error", "value": {{ .app.status.operationState.message | substr 0 500 | toJson }}, "inline": false}
+              ],
+              "timestamp": {{ .app.status.operationState.finishedAt | toJson }}
+            }]
+          }
+
+  # 템플릿: Sync 시작
+  template.app-sync-running: |
+    webhook:
+      discord:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{ printf "🔄 %s Sync 진행 중" .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 동기화 시작\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "color": 16776960,
+              "fields": [
+                {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true}
+              ]
+            }]
+          }
+
+  # 템플릿: Health Degraded
+  template.app-health-degraded: |
+    webhook:
+      discord:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{ printf "⚠️ %s Health Degraded" .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 상태 비정상\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "color": 16744448,
+              "fields": [
+                {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
+                {"name": "Health", "value": {{ .app.status.health.status | toJson }}, "inline": true},
+                {"name": "Message", "value": {{ .app.status.conditions | first | default dict | dig "message" "N/A" | substr 0 300 | toJson }}, "inline": false}
+              ]
+            }]
+          }
+
+  # === 인프라용 템플릿 (discord-infra 채널) ===
+  template.infra-deployed: |
+    webhook:
+      discord-infra:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{ printf "✅ %s 인프라 배포 성공" .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 배포 완료" .app.metadata.name | toJson }},
+              "color": 3066993,
+              "fields": [
+                {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
+                {"name": "Revision", "value": {{ .app.status.sync.revision | substr 0 7 | toJson }}, "inline": true}
+              ],
+              "timestamp": {{ .app.status.operationState.finishedAt | toJson }}
+            }]
+          }
+
+  template.infra-deploy-failed: |
+    webhook:
+      discord-infra:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{ printf "❌ %s 인프라 배포 실패" .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 배포 실패\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "color": 15158332,
+              "fields": [
+                {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
+                {"name": "Phase", "value": {{ .app.status.operationState.phase | toJson }}, "inline": true},
+                {"name": "Error", "value": {{ .app.status.operationState.message | substr 0 500 | toJson }}, "inline": false}
+              ],
+              "timestamp": {{ .app.status.operationState.finishedAt | toJson }}
+            }]
+          }
+
+  template.infra-health-degraded: |
+    webhook:
+      discord-infra:
+        method: POST
+        body: |
+          {
+            "embeds": [{
+              "title": {{ printf "⚠️ %s 인프라 Health Degraded" .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 상태 비정상\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "color": 16744448,
+              "fields": [
+                {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
+                {"name": "Health", "value": {{ .app.status.health.status | toJson }}, "inline": true},
+                {"name": "Message", "value": {{ .app.status.conditions | first | default dict | dig "message" "N/A" | substr 0 300 | toJson }}, "inline": false}
+              ]
+            }]
+          }
+
+  # === 인프라용 트리거 ===
+  trigger.on-infra-deployed: |
+    - when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+      send: [infra-deployed]
+
+  trigger.on-infra-deploy-failed: |
+    - when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [infra-deploy-failed]
+
+  trigger.on-infra-health-degraded: |
+    - when: app.status.health.status == 'Degraded'
+      send: [infra-health-degraded]
+
+  # === 앱용 트리거 ===
+  trigger.on-deployed: |
+    - when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+      send: [app-deployed]
+
+  trigger.on-sync-running: |
+    - when: app.status.operationState.phase in ['Running']
+      send: [app-sync-running]
+
+  trigger.on-deploy-failed: |
+    - when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [app-deploy-failed]
+
+  trigger.on-health-degraded: |
+    - when: app.status.health.status == 'Degraded'
+      send: [app-health-degraded]
+
+  # 기본 트리거 (모든 앱에 적용)
+  defaultTriggers: |
+    - on-sync-running
+    - on-deployed
+    - on-deploy-failed
+    - on-health-degraded

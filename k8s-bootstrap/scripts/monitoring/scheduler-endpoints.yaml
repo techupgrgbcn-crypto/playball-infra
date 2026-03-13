@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: prom-kube-scheduler
+  namespace: kube-system
+  labels:
+    app: kube-prometheus-stack-kube-scheduler
+    jobLabel: kube-scheduler
+    release: prometheus-stack
+subsets:
+  - addresses:
+      - ip: 10.0.0.10
+    ports:
+      - name: http-metrics
+        port: 10259
+        protocol: TCP

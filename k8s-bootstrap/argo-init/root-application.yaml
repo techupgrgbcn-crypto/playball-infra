@@ -1,0 +1,26 @@
+# App of Apps - Root Application (dev)
+# kubeadm 클러스터의 ArgoCD가 이 앱을 통해 helm repo의 dev용 앱들을 관리합니다.
+#
+# Usage: make deploy-root-app
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:my-organization/303-myproject-k8s-helm.git
+    targetRevision: argocd-sync/dev
+    path: dev/root
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
