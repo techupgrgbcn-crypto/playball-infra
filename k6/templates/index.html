@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부하 테스트 - GoormGB</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00C292;
+            --primary-hover: #00A67D;
+            --primary-light: rgba(0, 194, 146, 0.1);
+            --secondary: #0A91BD;
+            --background: #0A0A0A;
+            --surface: #141414;
+            --surface-hover: #1A1A1A;
+            --border: #262626;
+            --border-light: #333333;
+            --text: #FAFAFA;
+            --text-muted: #A1A1A1;
+            --text-subtle: #737373;
+            --destructive: #EF4444;
+            --warning: #F59E0B;
+            --success: #22C55E;
+            --radius: 10px;
+            --radius-sm: 6px;
+            --radius-lg: 14px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* Header */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .logo img {
+            height: 28px;
+            width: auto;
+        }
+
+        .logo-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+        }
+
+        .logo-subtitle {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Environment Selector in Header */
+        .env-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .env-tabs {
+            display: flex;
+            background: var(--background);
+            border-radius: var(--radius);
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .env-tab {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+        }
+
+        .env-tab:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .env-tab.active {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .env-tab.active.staging {
+            background: var(--warning);
+        }
+
+        .env-tab.active.prod {
+            background: var(--destructive);
+        }
+
+        .target-url {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: var(--text-subtle);
+            background: var(--background);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status-indicator.idle {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+
+        .status-indicator.running {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--destructive);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 24px;
+            padding: 24px;
+            max-width: 1600px;
+            margin: 0 auto;
+            min-height: calc(100vh - 64px);
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-content {
+            padding: 16px;
+        }
+
+        /* Left Column */
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Select Box */
+        .custom-select {
+            position: relative;
+            width: 100%;
+        }
+
+        .custom-select select {
+            width: 100%;
+            padding: 12px 40px 12px 14px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            appearance: none;
+            transition: border-color 0.15s;
+        }
+
+        .custom-select select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .custom-select select:hover {
+            border-color: var(--border-light);
+        }
+
+        .custom-select::after {
+            content: '';
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid var(--text-muted);
+            pointer-events: none;
+        }
+
+        .custom-select select option {
+            background: var(--surface);
+            color: var(--text);
+            padding: 10px;
+        }
+
+        /* Test Type Detail */
+        .test-detail {
+            margin-top: 12px;
+            padding: 16px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .test-detail-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .test-detail-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .test-detail-icon.smoke { background: rgba(34, 197, 94, 0.15); }
+        .test-detail-icon.load { background: rgba(59, 130, 246, 0.15); }
+        .test-detail-icon.stress { background: rgba(245, 158, 11, 0.15); }
+        .test-detail-icon.spike { background: rgba(239, 68, 68, 0.15); }
+        .test-detail-icon.soak { background: rgba(139, 92, 246, 0.15); }
+
+        .test-detail-title {
+            flex: 1;
+        }
+
+        .test-detail-title h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+
+        .test-detail-title span {
+            font-size: 12px;
+            color: var(--text-subtle);
+        }
+
+        .test-detail-config {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 11px;
+            color: var(--primary);
+            background: var(--primary-light);
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+        }
+
+        .test-detail-body {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .test-detail-body p {
+            margin-bottom: 10px;
+        }
+
+        .test-detail-body strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .test-detail-body ul {
+            margin: 8px 0 12px 18px;
+        }
+
+        .test-detail-body li {
+            margin-bottom: 4px;
+        }
+
+        .test-detail-body .check-item {
+            color: var(--success);
+        }
+
+        .test-detail-body .warn-item {
+            color: var(--warning);
+        }
+
+        .test-detail-body code {
+            background: var(--surface);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: var(--primary);
+        }
+
+        /* Endpoints Display */
+        .endpoints-box {
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .endpoints-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .endpoints-header::before {
+            content: '';
+            display: block;
+            width: 3px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        .endpoint-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+        }
+
+        .endpoint-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .endpoint-method {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .endpoint-method.get {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+
+        .endpoint-method.post {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3B82F6;
+        }
+
+        .endpoint-path {
+            color: var(--text);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .endpoint-weight {
+            font-size: 10px;
+            color: var(--text-subtle);
+            flex-shrink: 0;
+        }
+
+        /* Settings */
+        .settings-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .form-group input {
+            padding: 10px 12px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.15s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .threshold-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .threshold-row label {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .threshold-row input {
+            width: 70px;
+            padding: 6px 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: 13px;
+            text-align: right;
+        }
+
+        .threshold-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .threshold-row .unit {
+            font-size: 12px;
+            color: var(--text-subtle);
+            width: 24px;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--destructive);
+            border: 1px solid var(--destructive);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Terminal */
+        .terminal-panel {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 112px);
+            max-height: calc(100vh - 112px);
+        }
+
+        .terminal-header {
+            padding: 12px 16px;
+            background: var(--background);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #EF4444; }
+        .terminal-dot.yellow { background: #F59E0B; }
+        .terminal-dot.green { background: #22C55E; }
+
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-subtle);
+        }
+
+        .terminal-body {
+            flex: 1;
+            min-height: 0;
+            background: #0A0A0A;
+            padding: 16px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 12px;
+            line-height: 1.7;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .terminal-line { margin-bottom: 2px; color: var(--text-muted); }
+        .terminal-line.command { color: var(--primary); }
+        .terminal-line.error { color: var(--destructive); }
+        .terminal-line.success { color: var(--success); }
+        .terminal-line.info { color: var(--secondary); }
+        .terminal-line.warn { color: var(--warning); }
+        .terminal-line.metric { color: #A78BFA; }
+
+        .terminal-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: var(--primary);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Metrics Panel */
+        .metrics-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border-top: 1px solid var(--border);
+        }
+
+        .metric-card {
+            background: var(--surface);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'SF Mono', Monaco, monospace;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-subtle);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-card:nth-child(1) .metric-value { color: var(--secondary); }
+        .metric-card:nth-child(2) .metric-value { color: var(--success); }
+        .metric-card:nth-child(3) .metric-value { color: var(--warning); }
+        .metric-card:nth-child(4) .metric-value { color: var(--destructive); }
+
+        /* Test Result Summary */
+        .result-panel {
+            border-top: 1px solid var(--border);
+            padding: 16px;
+            background: var(--surface);
+            display: none;
+        }
+
+        .result-panel.show {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .result-badge {
+            padding: 6px 14px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .result-badge.pass {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+
+        .result-badge.fail {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--destructive);
+        }
+
+        .result-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .result-checks {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: var(--background);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+        }
+
+        .check-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        .check-icon.pass {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+
+        .check-icon.fail {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--destructive);
+        }
+
+        .check-icon.pending {
+            background: var(--surface);
+            color: var(--text-subtle);
+        }
+
+        .check-label {
+            flex: 1;
+            color: var(--text-muted);
+        }
+
+        .check-value {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+
+            .terminal-panel {
+                height: 500px;
+            }
+
+            .env-selector {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="/static/src/logo.png" alt="GoormGB">
+            <span class="logo-divider"></span>
+            <span class="logo-subtitle">부하 테스트</span>
+        </div>
+
+        <div class="env-selector">
+            <div class="env-tabs">
+                <button class="env-tab active" data-env="dev" data-url="https://api.dev.goormgb.space" onclick="selectEnv(this)">개발</button>
+                <button class="env-tab staging" data-env="staging" data-url="https://api.staging.playball.one" onclick="selectEnv(this)">스테이징</button>
+                <button class="env-tab prod" data-env="prod" data-url="https://api.playball.one" onclick="selectEnv(this)">프로덕션</button>
+            </div>
+            <div class="target-url" id="target-url">https://api.dev.goormgb.space</div>
+        </div>
+
+        <div class="status-indicator idle" id="status-badge">
+            <span class="status-dot"></span>
+            <span id="status-text">대기중</span>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="left-column">
+            <!-- Service & Test Type Selection -->
+            <div class="panel">
+                <div class="panel-header">🎯 테스트 설정</div>
+                <div class="panel-content">
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label>대상 서비스</label>
+                        <div class="custom-select">
+                            <select id="service-select" onchange="selectService(this.value)">
+                                <option value="all">전체 서비스</option>
+                                <option value="api-gateway">api-gateway</option>
+                                <option value="auth-guard">auth-guard</option>
+                                <option value="order-core">order-core</option>
+                                <option value="queue">queue</option>
+                                <option value="seat">seat</option>
+                                <option value="recommendation">recommendation</option>
+                                <option value="ai-defense">ai-defense</option>
+                            </select>
+                        </div>
+                        <div class="endpoints-box" id="endpoints-box">
+                            <div class="endpoints-header">테스트 엔드포인트</div>
+                            <div id="endpoints-list">
+                                <div class="endpoint-item">
+                                    <span class="endpoint-method get">GET</span>
+                                    <span class="endpoint-path">/order/clubs</span>
+                                    <span class="endpoint-weight">30%</span>
+                                </div>
+                                <div class="endpoint-item">
+                                    <span class="endpoint-method get">GET</span>
+                                    <span class="endpoint-path">/order/matches?date=2026-03-28</span>
+                                    <span class="endpoint-weight">30%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>테스트 유형</label>
+                        <div class="custom-select">
+                            <select id="test-type-select" onchange="selectTestType(this.value)">
+                                <option value="smoke" data-vus="5" data-duration="1m">💨 스모크 - 기본 동작 확인</option>
+                                <option value="load" data-vus="50" data-duration="5m">📊 부하 - 일반 부하 상황</option>
+                                <option value="stress" data-vus="200" data-duration="10m">📈 스트레스 - 한계점 탐색</option>
+                                <option value="spike" data-vus="300" data-duration="5m">🚀 스파이크 - Auto Scaling 검증</option>
+                                <option value="soak" data-vus="50" data-duration="30m">🔄 내구성 - 메모리 누수 탐지</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Test Detail -->
+                    <div class="test-detail" id="test-detail">
+                        <div class="test-detail-header">
+                            <div class="test-detail-icon smoke" id="detail-icon">💨</div>
+                            <div class="test-detail-title">
+                                <h3 id="detail-title">스모크 테스트</h3>
+                                <span id="detail-subtitle">기본 동작 확인</span>
+                            </div>
+                            <div class="test-detail-config" id="detail-config">5 VUs · 1분</div>
+                        </div>
+                        <div class="test-detail-body" id="detail-body">
+                            <p><strong>목적:</strong> 배포 직후 시스템의 기본적인 동작 여부를 빠르게 확인합니다.</p>
+                            <p><strong>테스트 시나리오:</strong></p>
+                            <ul>
+                                <li class="check-item">✓ Health 엔드포인트 200 응답 확인</li>
+                                <li class="check-item">✓ 기본 API 호출 성공 여부</li>
+                                <li class="check-item">✓ 인증 토큰 발급 정상 동작</li>
+                            </ul>
+                            <p><strong>통과 기준:</strong></p>
+                            <ul>
+                                <li>P95 응답시간 &lt; 500ms</li>
+                                <li>에러율 0%</li>
+                            </ul>
+                            <p><strong>Grafana 확인:</strong> 기본 메트릭 패널에서 모든 지표가 녹색인지 확인</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="panel">
+                <div class="panel-header">⚙️ 세부 설정</div>
+                <div class="panel-content">
+                    <div class="settings-row" style="margin-bottom: 12px;">
+                        <div class="form-group">
+                            <label>가상 사용자 (VUs)</label>
+                            <input type="number" id="vus" value="5" min="1" max="1000">
+                        </div>
+                        <div class="form-group">
+                            <label>실행 시간</label>
+                            <input type="text" id="duration" value="1m" placeholder="30s, 5m, 1h">
+                        </div>
+                    </div>
+                    <div class="threshold-row" style="margin-bottom: 8px;">
+                        <label>P95 응답시간</label>
+                        <input type="number" id="threshold-p95" value="500" min="1">
+                        <span class="unit">ms</span>
+                    </div>
+                    <div class="threshold-row" style="margin-bottom: 16px;">
+                        <label>허용 에러율</label>
+                        <input type="number" id="threshold-error" value="1" min="0" max="100" step="0.1">
+                        <span class="unit">%</span>
+                    </div>
+                    <div class="btn-group">
+                        <button id="btn-run" class="btn btn-primary" onclick="runTest()">▶ 테스트 시작</button>
+                        <button id="btn-stop" class="btn btn-danger" onclick="stopTest()" disabled>⏹ 중지</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Terminal -->
+        <div class="panel terminal-panel">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                </div>
+                <span class="terminal-title">실행 로그</span>
+            </div>
+            <div class="terminal-body" id="terminal">
+                <div class="terminal-line info">GoormGB 부하 테스트 대시보드</div>
+                <div class="terminal-line"></div>
+                <div class="terminal-line">테스트 준비 완료. 서비스와 테스트 유형을 선택하세요.</div>
+                <div class="terminal-line"></div>
+                <span class="terminal-cursor"></span>
+            </div>
+            <div class="metrics-panel">
+                <div class="metric-card">
+                    <div class="metric-value" id="metric-vus">0</div>
+                    <div class="metric-label">활성 VUs</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="metric-rps">0</div>
+                    <div class="metric-label">초당 요청</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="metric-latency">0</div>
+                    <div class="metric-label">P95 (ms)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="metric-errors">0%</div>
+                    <div class="metric-label">에러율</div>
+                </div>
+            </div>
+            <div class="result-panel" id="result-panel">
+                <div class="result-header">
+                    <span class="result-badge" id="result-badge">검사중</span>
+                    <span class="result-title" id="result-title">테스트 결과 요약</span>
+                </div>
+                <div class="result-checks" id="result-checks">
+                    <div class="check-row">
+                        <span class="check-icon pending" id="check-http">-</span>
+                        <span class="check-label">HTTP 요청 성공</span>
+                        <span class="check-value" id="check-http-value">-</span>
+                    </div>
+                    <div class="check-row">
+                        <span class="check-icon pending" id="check-p95">-</span>
+                        <span class="check-label">P95 응답시간</span>
+                        <span class="check-value" id="check-p95-value">-</span>
+                    </div>
+                    <div class="check-row">
+                        <span class="check-icon pending" id="check-error">-</span>
+                        <span class="check-label">에러율 임계치</span>
+                        <span class="check-value" id="check-error-value">-</span>
+                    </div>
+                    <div class="check-row">
+                        <span class="check-icon pending" id="check-status">-</span>
+                        <span class="check-label">상태코드 200</span>
+                        <span class="check-value" id="check-status-value">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isRunning = false;
+        let selectedEnv = 'dev';
+        let selectedService = 'all';
+        let selectedTestType = 'smoke';
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            ws.onmessage = (event) => {
+                appendTerminal(event.data);
+                parseMetrics(event.data);
+            };
+            ws.onclose = () => setTimeout(connectWebSocket, 1000);
+        }
+
+        let testResults = {
+            totalReqs: 0,
+            failedReqs: 0,
+            p95: 0,
+            errorRate: 0,
+            checksPass: 0,
+            checksFail: 0
+        };
+
+        let lastIterations = 0;
+        let lastTime = Date.now();
+
+        function parseMetrics(text) {
+            // VUs from k6 realtime output: "50/50 VUs" or "running (0m30.0s), 50/50 VUs"
+            const vusMatch = text.match(/(\d+)\/\d+ VUs/i) || text.match(/\] (\d+) VUs/i);
+            if (vusMatch) document.getElementById('metric-vus').textContent = vusMatch[1];
+
+            // Iterations from k6 realtime output: "2952 complete and 0 interrupted"
+            const iterMatch = text.match(/(\d+) complete and/i);
+            if (iterMatch) {
+                const currentIter = parseInt(iterMatch[1]);
+                const now = Date.now();
+                const timeDiff = (now - lastTime) / 1000;
+                if (timeDiff > 0.5 && currentIter > lastIterations) {
+                    const rps = (currentIter - lastIterations) / timeDiff;
+                    if (rps < 10000) { // 비정상적인 값 필터링
+                        document.getElementById('metric-rps').textContent = rps.toFixed(1);
+                    }
+                }
+                lastIterations = currentIter;
+                lastTime = now;
+            }
+
+            // RPS from k6 summary output: "http_reqs...............: 5904   98.4/s"
+            const rpsMatch = text.match(/http_reqs[.\s:]+(\d+)\s+(\d+(?:\.\d+)?)\/s/i);
+            if (rpsMatch) document.getElementById('metric-rps').textContent = parseFloat(rpsMatch[2]).toFixed(1);
+
+            // P95 from k6 output: "p(95)=12.1ms" or "P95 Latency:     12.10ms"
+            const p95Match = text.match(/p\(95\)[=:]\s*(\d+(?:\.\d+)?)/i) || text.match(/P95 Latency:\s*(\d+(?:\.\d+)?)ms/i);
+            if (p95Match) {
+                const p95Val = parseFloat(p95Match[1]);
+                document.getElementById('metric-latency').textContent = p95Val.toFixed(0);
+                testResults.p95 = p95Val;
+            }
+
+            // Error rate from k6 output: "http_req_failed........: 10.00%" or "Failed Requests: 100%"
+            const errMatch = text.match(/http_req_failed[.\s:]+(\d+(?:\.\d+)?)%/i) || text.match(/Failed Requests:\s*(\d+(?:\.\d+)?)%/i);
+            if (errMatch) {
+                const errVal = parseFloat(errMatch[1]);
+                document.getElementById('metric-errors').textContent = errVal + '%';
+                testResults.errorRate = errVal;
+            }
+
+            // Parse total requests: "Total Requests:  590"
+            const totalMatch = text.match(/Total Requests:\s*(\d+)/i);
+            if (totalMatch) testResults.totalReqs = parseInt(totalMatch[1]);
+
+            // Parse checks from k6 output: "checks........................: 100.00% ✓ 100 ✗ 0"
+            const checksMatch = text.match(/checks[.\s:]+(\d+(?:\.\d+)?)%/i);
+            if (checksMatch) testResults.checksPass = parseFloat(checksMatch[1]);
+
+            // Detect test completion: "Result: ✓ PASSED" or "Result: ✗ FAILED"
+            if (text.includes('PASSED')) {
+                showTestResult(true);
+            } else if (text.includes('FAILED') || text.includes('thresholds on metrics')) {
+                showTestResult(false);
+            }
+        }
+
+        function showTestResult(passed) {
+            const panel = document.getElementById('result-panel');
+            const badge = document.getElementById('result-badge');
+            const thresholdP95 = parseInt(document.getElementById('threshold-p95').value);
+            const thresholdError = parseFloat(document.getElementById('threshold-error').value);
+
+            panel.classList.add('show');
+
+            if (passed) {
+                badge.className = 'result-badge pass';
+                badge.textContent = '✓ 통과';
+            } else {
+                badge.className = 'result-badge fail';
+                badge.textContent = '✗ 실패';
+            }
+
+            // Update individual checks
+            updateCheck('check-http', 'check-http-value',
+                testResults.errorRate < 100,
+                testResults.errorRate < 100 ? `${(100 - testResults.errorRate).toFixed(1)}% 성공` : '모두 실패');
+
+            updateCheck('check-p95', 'check-p95-value',
+                testResults.p95 < thresholdP95,
+                `${testResults.p95.toFixed(0)}ms (기준: ${thresholdP95}ms)`);
+
+            updateCheck('check-error', 'check-error-value',
+                testResults.errorRate <= thresholdError,
+                `${testResults.errorRate.toFixed(1)}% (기준: ${thresholdError}%)`);
+
+            updateCheck('check-status', 'check-status-value',
+                testResults.checksPass >= 95,
+                testResults.checksPass > 0 ? `${testResults.checksPass.toFixed(0)}% 통과` : '-');
+        }
+
+        function updateCheck(iconId, valueId, passed, value) {
+            const icon = document.getElementById(iconId);
+            const valueEl = document.getElementById(valueId);
+
+            icon.className = 'check-icon ' + (passed ? 'pass' : 'fail');
+            icon.textContent = passed ? '✓' : '✗';
+            valueEl.textContent = value;
+        }
+
+        function resetResultPanel() {
+            const panel = document.getElementById('result-panel');
+            panel.classList.remove('show');
+            testResults = { totalReqs: 0, failedReqs: 0, p95: 0, errorRate: 0, checksPass: 0, checksFail: 0 };
+            ['check-http', 'check-p95', 'check-error', 'check-status'].forEach(id => {
+                document.getElementById(id).className = 'check-icon pending';
+                document.getElementById(id).textContent = '-';
+                document.getElementById(id + '-value').textContent = '-';
+            });
+        }
+
+        function appendTerminal(text) {
+            const terminal = document.getElementById('terminal');
+            const cursor = terminal.querySelector('.terminal-cursor');
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            if (text.startsWith('$')) line.classList.add('command');
+            else if (text.includes('✗') || text.includes('FAIL') || text.includes('error')) line.classList.add('error');
+            else if (text.includes('✓') || text.includes('PASS') || text.includes('completed')) line.classList.add('success');
+            else if (text.includes('http_req') || text.includes('vus')) line.classList.add('metric');
+            else if (text.includes('⚠') || text.includes('warn')) line.classList.add('warn');
+            line.textContent = text;
+            terminal.insertBefore(line, cursor);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearTerminal() {
+            const terminal = document.getElementById('terminal');
+            const cursor = terminal.querySelector('.terminal-cursor');
+            terminal.innerHTML = '';
+            terminal.appendChild(cursor);
+            ['metric-vus', 'metric-rps', 'metric-latency'].forEach(id => document.getElementById(id).textContent = '0');
+            document.getElementById('metric-errors').textContent = '0%';
+            lastIterations = 0;
+            lastTime = Date.now();
+            resetResultPanel();
+        }
+
+        function selectEnv(el) {
+            document.querySelectorAll('.env-tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            selectedEnv = el.dataset.env;
+            document.getElementById('target-url').textContent = el.dataset.url;
+        }
+
+        // Service endpoints data (matches k6 scripts)
+        const serviceEndpoints = {
+            all: [
+                { method: 'GET', path: '/order/clubs', weight: 30 },
+                { method: 'GET', path: '/order/clubs/1', weight: 20 },
+                { method: 'GET', path: '/order/matches?date=2026-03-28', weight: 30 },
+                { method: 'GET', path: '/order/clubs/1/matches?year=2026&month=3', weight: 20 },
+            ],
+            'api-gateway': [
+                { method: 'GET', path: '/order/clubs', weight: 50 },
+                { method: 'GET', path: '/order/clubs/1', weight: 50 },
+            ],
+            'auth-guard': [
+                { method: 'GET', path: '/auth/kakao/login-url?redirectUri=...', weight: 100 },
+            ],
+            'order-core': [
+                { method: 'GET', path: '/order/clubs', weight: 25 },
+                { method: 'GET', path: '/order/clubs/1', weight: 25 },
+                { method: 'GET', path: '/order/clubs/1/matches?year=2026&month=3', weight: 25 },
+                { method: 'GET', path: '/order/matches?date=2026-03-28', weight: 25 },
+            ],
+            'queue': [
+                { method: 'GET', path: '/order/clubs', weight: 100 },
+            ],
+            'seat': [
+                { method: 'GET', path: '/order/clubs', weight: 100 },
+            ],
+            'recommendation': [
+                { method: 'GET', path: '/order/clubs', weight: 100 },
+            ],
+            'ai-defense': [
+                { method: 'GET', path: '/order/clubs', weight: 100 },
+            ],
+        };
+
+        function selectService(value) {
+            selectedService = value;
+            updateEndpointsDisplay(value);
+        }
+
+        function updateEndpointsDisplay(service) {
+            const endpoints = serviceEndpoints[service] || serviceEndpoints['all'];
+            const listEl = document.getElementById('endpoints-list');
+
+            listEl.innerHTML = endpoints.map(ep => `
+                <div class="endpoint-item">
+                    <span class="endpoint-method ${ep.method.toLowerCase()}">${ep.method}</span>
+                    <span class="endpoint-path" title="${ep.path}">${ep.path}</span>
+                    <span class="endpoint-weight">${ep.weight}%</span>
+                </div>
+            `).join('');
+        }
+
+        const testTypeDetails = {
+            smoke: {
+                icon: '💨',
+                title: '스모크 테스트',
+                subtitle: '기본 동작 확인',
+                config: '5 VUs · 1분',
+                vus: 5,
+                duration: '1m',
+                body: `
+                    <p><strong>목적:</strong> 배포 직후 시스템의 기본적인 동작 여부를 빠르게 확인합니다.</p>
+                    <p><strong>테스트 시나리오:</strong></p>
+                    <ul>
+                        <li class="check-item">✓ Health 엔드포인트 200 응답 확인</li>
+                        <li class="check-item">✓ 기본 API 호출 성공 여부</li>
+                        <li class="check-item">✓ 인증 토큰 발급 정상 동작</li>
+                    </ul>
+                    <p><strong>통과 기준:</strong></p>
+                    <ul>
+                        <li>P95 응답시간 &lt; 500ms</li>
+                        <li>에러율 0%</li>
+                    </ul>
+                    <p><strong>Grafana 확인:</strong> 기본 메트릭 패널에서 모든 지표가 녹색인지 확인</p>
+                `
+            },
+            load: {
+                icon: '📊',
+                title: '부하 테스트',
+                subtitle: '일반 부하 상황',
+                config: '50 VUs · 5분',
+                vus: 50,
+                duration: '5m',
+                body: `
+                    <p><strong>목적:</strong> 예상되는 일반적인 트래픽 상황에서의 시스템 성능을 측정합니다.</p>
+                    <p><strong>테스트 시나리오:</strong></p>
+                    <ul>
+                        <li class="check-item">✓ 동시 50명 사용자 시뮬레이션</li>
+                        <li class="check-item">✓ 티켓 조회, 예매, 결제 시나리오</li>
+                        <li class="check-item">✓ 5분간 지속적인 부하 유지</li>
+                    </ul>
+                    <p><strong>측정 지표:</strong></p>
+                    <ul>
+                        <li>RPS (초당 요청수) 추이</li>
+                        <li>P50/P95/P99 응답시간 분포</li>
+                        <li>CPU/Memory 사용률</li>
+                    </ul>
+                    <p><strong>Grafana 확인:</strong> <code>k6 Load Testing</code> 대시보드에서 RPS와 응답시간 그래프 분석</p>
+                `
+            },
+            stress: {
+                icon: '📈',
+                title: '스트레스 테스트',
+                subtitle: '한계점 탐색',
+                config: '10→200 VUs',
+                vus: 200,
+                duration: '10m',
+                body: `
+                    <p><strong>목적:</strong> 시스템이 어느 정도의 부하까지 견딜 수 있는지 한계점을 탐색합니다.</p>
+                    <p><strong>테스트 시나리오:</strong></p>
+                    <ul>
+                        <li>10 VUs에서 시작하여 200 VUs까지 점진적 증가</li>
+                        <li>Ramp-up: 2분 / Hold: 5분 / Ramp-down: 3분</li>
+                    </ul>
+                    <p><strong>주요 관찰 포인트:</strong></p>
+                    <ul>
+                        <li class="warn-item">⚠️ 에러율이 급증하는 VU 수</li>
+                        <li class="warn-item">⚠️ 응답시간이 급격히 증가하는 지점</li>
+                        <li class="warn-item">⚠️ 커넥션 타임아웃 발생 여부</li>
+                    </ul>
+                    <p><strong>Grafana 확인:</strong> VU 수 대비 에러율 및 응답시간 상관관계 분석</p>
+                `
+            },
+            spike: {
+                icon: '🚀',
+                title: '스파이크 테스트',
+                subtitle: 'Auto Scaling 검증',
+                config: '→300 VUs',
+                vus: 300,
+                duration: '5m',
+                body: `
+                    <p><strong>목적:</strong> 갑작스러운 트래픽 급증 시 HPA/KEDA Auto Scaling이 정상 작동하는지 검증합니다.</p>
+                    <p><strong>테스트 시나리오:</strong></p>
+                    <ul>
+                        <li>1분 내에 0 → 300 VUs 급격한 증가</li>
+                        <li>2분간 최대 부하 유지</li>
+                        <li>30초 내에 10 VUs로 급감</li>
+                    </ul>
+                    <p><strong>주요 관찰 포인트:</strong></p>
+                    <ul>
+                        <li class="check-item">✓ Pod 개수 변화 (Scale-out 발생 여부)</li>
+                        <li class="check-item">✓ Scale-out 반응 시간 (목표: 30초 이내)</li>
+                        <li class="check-item">✓ Scale-in 정상 동작 확인</li>
+                    </ul>
+                    <p><strong>함께 실행:</strong> <code>kubectl get hpa -w</code> 또는 <code>kubectl get pods -w</code></p>
+                `
+            },
+            soak: {
+                icon: '🔄',
+                title: '내구성 테스트',
+                subtitle: '메모리 누수 탐지',
+                config: '50 VUs · 30분',
+                vus: 50,
+                duration: '30m',
+                body: `
+                    <p><strong>목적:</strong> 장시간 부하 상황에서 메모리 누수, 커넥션 풀 고갈 등의 문제를 탐지합니다.</p>
+                    <p><strong>테스트 시나리오:</strong></p>
+                    <ul>
+                        <li>50 VUs로 30분간 지속적인 부하</li>
+                        <li>일정한 패턴의 요청 반복</li>
+                    </ul>
+                    <p><strong>주요 관찰 포인트:</strong></p>
+                    <ul>
+                        <li class="warn-item">⚠️ 메모리 점진적 증가 = 누수 의심</li>
+                        <li class="warn-item">⚠️ Pod Restart 횟수 (OOM Killed)</li>
+                        <li class="warn-item">⚠️ DB 커넥션 풀 고갈</li>
+                        <li class="warn-item">⚠️ 응답시간 점진적 증가</li>
+                    </ul>
+                    <p><strong>Grafana 확인:</strong> <code>container_memory_working_set_bytes</code> 메트릭의 시계열 추이 분석</p>
+                `
+            }
+        };
+
+        function selectTestType(type) {
+            selectedTestType = type;
+            const detail = testTypeDetails[type];
+
+            // Update icon
+            const iconEl = document.getElementById('detail-icon');
+            iconEl.className = 'test-detail-icon ' + type;
+            iconEl.textContent = detail.icon;
+
+            // Update title
+            document.getElementById('detail-title').textContent = detail.title;
+            document.getElementById('detail-subtitle').textContent = detail.subtitle;
+            document.getElementById('detail-config').textContent = detail.config;
+            document.getElementById('detail-body').innerHTML = detail.body;
+
+            // Update form values
+            document.getElementById('vus').value = detail.vus;
+            document.getElementById('duration').value = detail.duration;
+        }
+
+        async function runTest() {
+            if (isRunning) return;
+            const envTab = document.querySelector('.env-tab.active');
+            const targetUrl = envTab.dataset.url;
+            const vus = parseInt(document.getElementById('vus').value);
+            const duration = document.getElementById('duration').value;
+            const thresholdP95 = parseInt(document.getElementById('threshold-p95').value);
+            const thresholdError = parseFloat(document.getElementById('threshold-error').value);
+
+            clearTerminal();
+            appendTerminal(`환경: ${selectedEnv.toUpperCase()} | 서비스: ${selectedService}`);
+            appendTerminal(`테스트: ${selectedTestType} | VUs: ${vus} | 시간: ${duration}`);
+            appendTerminal(`통과 기준: P95 < ${thresholdP95}ms, 에러 < ${thresholdError}%`);
+            appendTerminal('');
+            setRunningState(true);
+
+            try {
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        script: `${selectedTestType}.js`,
+                        environment: selectedEnv,
+                        service: selectedService,
+                        targetUrl, vus, duration, thresholdP95, thresholdError
+                    })
+                });
+                if (!response.ok) {
+                    appendTerminal(`오류: ${await response.text()}`);
+                    setRunningState(false);
+                }
+            } catch (error) {
+                appendTerminal(`오류: ${error.message}`);
+                setRunningState(false);
+            }
+        }
+
+        async function stopTest() {
+            try {
+                await fetch('/api/stop', { method: 'POST' });
+                setRunningState(false);
+            } catch (error) {
+                appendTerminal(`중지 오류: ${error.message}`);
+            }
+        }
+
+        function setRunningState(running) {
+            isRunning = running;
+            const badge = document.getElementById('status-badge');
+            const statusText = document.getElementById('status-text');
+            document.getElementById('btn-run').disabled = running;
+            document.getElementById('btn-stop').disabled = !running;
+            if (running) {
+                badge.className = 'status-indicator running';
+                statusText.textContent = '실행중';
+            } else {
+                badge.className = 'status-indicator idle';
+                statusText.textContent = '대기중';
+            }
+        }
+
+        async function pollStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                if (isRunning !== data.running) setRunningState(data.running);
+            } catch (e) {}
+        }
+
+        connectWebSocket();
+        setInterval(pollStatus, 2000);
+        // Initialize endpoints display
+        updateEndpointsDisplay('all');
+    </script>
+</body>
+</html>

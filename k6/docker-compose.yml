@@ -1,0 +1,42 @@
+services:
+  k6-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: k6-dashboard
+    ports:
+      - "9090:9090"
+    environment:
+      - PORT=9090
+      # Prometheus Remote Write (optional - for sending metrics to Prometheus)
+      # - K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write
+      # - K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true
+    volumes:
+      # Mount scripts for live editing (optional)
+      - ./scripts:/app/scripts:ro
+    restart: unless-stopped
+    networks:
+      - k6-network
+
+  # Optional: Local Prometheus for testing
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: k6-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus-data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.enable-remote-write-receiver'
+  #   networks:
+  #     - k6-network
+
+networks:
+  k6-network:
+    driver: bridge
+
+# volumes:
+#   prometheus-data:
