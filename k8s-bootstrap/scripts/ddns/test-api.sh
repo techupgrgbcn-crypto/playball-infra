@@ -4,7 +4,7 @@ set -euo pipefail
 # Route53 API 연결 테스트
 # Usage: ./scripts/ddns/test-api.sh
 
-DOMAIN="${DOMAIN:-example.dev}"
+DOMAIN="${DOMAIN:-goormgb.space}"
 HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-ZEXAMPLEZONEID}"
 
 echo "=== Route53 API Test ==="

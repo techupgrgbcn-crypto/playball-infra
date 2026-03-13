@@ -1,4 +1,4 @@
-# 302-myproject-k8s-bootstrap Makefile
+# 302-goormgb-k8s-bootstrap Makefile
 # kubeadm 클러스터 초기 설정을 위한 명령어 모음
 
 .PHONY: help install-all install-calico install-calico-legacy install-storage install-eso install-cert-manager install-istio install-argocd \
@@ -41,7 +41,7 @@ install-all: install-calico install-storage install-eso bootstrap-aws install-ce
 	@echo "=== All components installed ==="
 	@echo ""
 	@echo "ArgoCD UI:"
-	@echo "  URL: https://argocd.example.dev"
+	@echo "  URL: https://argocd.goormgb.space"
 	@echo ""
 	@echo "Login 방법:"
 	@echo "  1. Google OAuth (등록된 이메일만 접근 가능)"
@@ -139,7 +139,7 @@ setup-github-ssh:
 	kubectl apply -f argo-init/external-secret-github.yaml
 	@echo "Waiting for ExternalSecret to sync..."
 	@sleep 5
-	@kubectl get externalsecret repo-myproject-helm -n argocd || echo "ExternalSecret not ready yet. Check: kubectl get externalsecret -n argocd"
+	@kubectl get externalsecret repo-goormgb-helm -n argocd || echo "ExternalSecret not ready yet. Check: kubectl get externalsecret -n argocd"
 
 deploy-root-app:
 	@echo "=== Deploying Root Application ==="

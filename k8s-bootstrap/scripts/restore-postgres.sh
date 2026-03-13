@@ -30,21 +30,21 @@
 #    ./scripts/restore-postgres.sh
 #
 # 2. AWS CLI로 직접 검색:
-#    aws s3 ls s3://myproject-backup/dev/postgres/myproject/ --region ap-northeast-2
+#    aws s3 ls s3://goormgb-backup/dev/postgres/goormgb/ --region ap-northeast-2
 #
 # 3. 특정 날짜 백업 검색:
-#    aws s3 ls s3://myproject-backup/dev/postgres/myproject/ | grep "20260225"
+#    aws s3 ls s3://goormgb-backup/dev/postgres/goormgb/ | grep "20260225"
 #
 # 4. 가장 최신 백업 확인:
-#    aws s3 ls s3://myproject-backup/dev/postgres/myproject/ | sort -r | head -1
+#    aws s3 ls s3://goormgb-backup/dev/postgres/goormgb/ | sort -r | head -1
 #
 # ============================================================================
 # 백업 파일 형식
 # ============================================================================
 #
 # 파일명: backup-YYYYMMDD-HHMMSS.sql.gz
-# 경로: s3://myproject-backup/dev/postgres/myproject/
-# 예시: s3://myproject-backup/dev/postgres/myproject/backup-20260225-082317.sql.gz
+# 경로: s3://goormgb-backup/dev/postgres/goormgb/
+# 예시: s3://goormgb-backup/dev/postgres/goormgb/backup-20260225-082317.sql.gz
 #
 # ============================================================================
 # 복원 시 주의사항
@@ -61,9 +61,9 @@
 
 set -e
 
-S3_BUCKET="myproject-backup"
+S3_BUCKET="goormgb-backup"
 S3_PREFIX="dev/postgres"
-DATABASE="myproject"
+DATABASE="goormgb"
 NAMESPACE="data"
 
 # 색상

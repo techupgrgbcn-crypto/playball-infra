@@ -8,7 +8,7 @@ set -euo pipefail
 NAMESPACES="dev-app dev data external-secrets istio-system istio-ingress monitoring staging calico-system calico-apiserver tigera-operator local-path-storage"
 
 # TLS Secret 백업 경로
-TLS_BACKUP="/tmp/myproject-tls-backup.yaml"
+TLS_BACKUP="/tmp/goormgb-tls-backup.yaml"
 
 echo "=== Clean Apps ==="
 echo ""
@@ -29,9 +29,9 @@ fi
 echo ""
 echo "=== Step 0: Backup TLS secrets ==="
 # istio-system의 TLS secret 백업 (Let's Encrypt 재발급 방지)
-if kubectl get secret myproject-tls -n istio-system &>/dev/null; then
-  echo "  Backing up myproject-tls secret..."
-  kubectl get secret myproject-tls -n istio-system -o json | \
+if kubectl get secret goormgb-tls -n istio-system &>/dev/null; then
+  echo "  Backing up goormgb-tls secret..."
+  kubectl get secret goormgb-tls -n istio-system -o json | \
     jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.namespace, .metadata.managedFields, .metadata.ownerReferences)' \
     > "$TLS_BACKUP"
   echo "  Saved to $TLS_BACKUP"

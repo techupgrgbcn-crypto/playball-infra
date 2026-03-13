@@ -162,7 +162,7 @@ kubectl label namespace dev istio-injection=disabled --overwrite 2>/dev/null || 
 # fix_port_conflict
 
 # TLS Secret 복원 (clean-apps에서 백업한 경우)
-TLS_BACKUP="/tmp/myproject-tls-backup.yaml"
+TLS_BACKUP="/tmp/goormgb-tls-backup.yaml"
 if [[ -f "$TLS_BACKUP" ]]; then
   echo ""
   echo "=== Restoring TLS secret from backup ==="

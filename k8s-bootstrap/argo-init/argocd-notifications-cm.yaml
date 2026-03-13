@@ -45,7 +45,7 @@ data:
           {
             "embeds": [{
               "title": {{ printf "✅ %s 배포 성공" .app.metadata.name | toJson }},
-              "description": {{ printf "**%s** 배포 완료\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 배포 완료\n[ArgoCD에서 확인](https://argocd.goormgb.space/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
               "color": 3066993,
               "fields": [
                 {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
@@ -64,7 +64,7 @@ data:
           {
             "embeds": [{
               "title": {{ printf "❌ %s 배포 실패" .app.metadata.name | toJson }},
-              "description": {{ printf "**%s** 배포 실패\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 배포 실패\n[ArgoCD에서 확인](https://argocd.goormgb.space/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
               "color": 15158332,
               "fields": [
                 {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
@@ -83,7 +83,7 @@ data:
           {
             "embeds": [{
               "title": {{ printf "🔄 %s Sync 진행 중" .app.metadata.name | toJson }},
-              "description": {{ printf "**%s** 동기화 시작\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 동기화 시작\n[ArgoCD에서 확인](https://argocd.goormgb.space/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
               "color": 16776960,
               "fields": [
                 {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true}
@@ -100,7 +100,7 @@ data:
           {
             "embeds": [{
               "title": {{ printf "⚠️ %s Health Degraded" .app.metadata.name | toJson }},
-              "description": {{ printf "**%s** 상태 비정상\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 상태 비정상\n[ArgoCD에서 확인](https://argocd.goormgb.space/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
               "color": 16744448,
               "fields": [
                 {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
@@ -137,7 +137,7 @@ data:
           {
             "embeds": [{
               "title": {{ printf "❌ %s 인프라 배포 실패" .app.metadata.name | toJson }},
-              "description": {{ printf "**%s** 배포 실패\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 배포 실패\n[ArgoCD에서 확인](https://argocd.goormgb.space/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
               "color": 15158332,
               "fields": [
                 {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},
@@ -156,7 +156,7 @@ data:
           {
             "embeds": [{
               "title": {{ printf "⚠️ %s 인프라 Health Degraded" .app.metadata.name | toJson }},
-              "description": {{ printf "**%s** 상태 비정상\n[ArgoCD에서 확인](https://argocd.example.dev/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
+              "description": {{ printf "**%s** 상태 비정상\n[ArgoCD에서 확인](https://argocd.goormgb.space/applications/argocd/%s)" .app.metadata.name .app.metadata.name | toJson }},
               "color": 16744448,
               "fields": [
                 {"name": "Namespace", "value": {{ .app.spec.destination.namespace | toJson }}, "inline": true},

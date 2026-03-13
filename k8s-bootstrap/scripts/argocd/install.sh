@@ -56,7 +56,7 @@ helm repo update
 # 구조: Client → HTTPS → Istio Gateway → HTTP → ArgoCD
 # CP 노드에 배치 (nodeSelector + tolerations)
 # ArgoCD 도메인 설정
-ARGOCD_URL="${ARGOCD_URL:-https://argocd.example.dev}"
+ARGOCD_URL="${ARGOCD_URL:-https://argocd.goormgb.space}"
 
 # Helm install with optional webhook secret
 HELM_ARGS=(
@@ -137,7 +137,7 @@ done
 
 # 3. ExternalSecret 삭제 후 재적용 (stale 상태 방지)
 echo "Applying ExternalSecret..."
-kubectl delete externalsecret repo-myproject-helm -n argocd 2>/dev/null || true
+kubectl delete externalsecret repo-goormgb-helm -n argocd 2>/dev/null || true
 sleep 2
 if ! kubectl apply -f "$REPO_ROOT/argo-init/external-secret-github.yaml"; then
   echo "ERROR: Failed to apply ExternalSecret"
@@ -146,29 +146,29 @@ fi
 sleep 3
 
 # 4. Secret이 생성될 때까지 대기 (최대 60초)
-echo "Waiting for repo-myproject-helm secret..."
+echo "Waiting for repo-goormgb-helm secret..."
 for i in {1..30}; do
-  if kubectl get secret repo-myproject-helm -n argocd &>/dev/null; then
+  if kubectl get secret repo-goormgb-helm -n argocd &>/dev/null; then
     # secret 내용 확인
-    if kubectl get secret repo-myproject-helm -n argocd -o jsonpath='{.data.sshPrivateKey}' 2>/dev/null | grep -q "."; then
+    if kubectl get secret repo-goormgb-helm -n argocd -o jsonpath='{.data.sshPrivateKey}' 2>/dev/null | grep -q "."; then
       echo "  GitHub SSH secret ready"
       break
     fi
   fi
   # ExternalSecret 상태 확인
-  es_status=$(kubectl get externalsecret repo-myproject-helm -n argocd -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}' 2>/dev/null || echo "")
+  es_status=$(kubectl get externalsecret repo-goormgb-helm -n argocd -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}' 2>/dev/null || echo "")
   echo "  Waiting for secret... ($i/30) [ES status: $es_status]"
   sleep 2
 done
 
 # Secret 생성 확인
-if ! kubectl get secret repo-myproject-helm -n argocd &>/dev/null; then
+if ! kubectl get secret repo-goormgb-helm -n argocd &>/dev/null; then
   echo ""
-  echo "ERROR: repo-myproject-helm secret not created!"
+  echo "ERROR: repo-goormgb-helm secret not created!"
   echo ""
   echo "Debug:"
   kubectl get clustersecretstore aws-secrets-manager -o yaml 2>/dev/null | grep -A5 "status:" || true
-  kubectl get externalsecret repo-myproject-helm -n argocd -o yaml 2>/dev/null | grep -A10 "status:" || true
+  kubectl get externalsecret repo-goormgb-helm -n argocd -o yaml 2>/dev/null | grep -A10 "status:" || true
   echo ""
   echo "Possible causes:"
   echo "  1. AWS credentials not set: make bootstrap-aws"
@@ -211,7 +211,7 @@ echo ""
 if [[ -n "$WEBHOOK_SECRET" ]]; then
   echo "GitHub Webhook configured!"
   echo "  Add webhook in GitHub repo settings:"
-  echo "  - URL: https://argocd.example.dev/api/webhook"
+  echo "  - URL: https://argocd.goormgb.space/api/webhook"
   echo "  - Content-Type: application/json"
   echo "  - Secret: (stored in AWS SM: dev/argocd/webhook-github)"
   echo "  - Events: Just the push event"

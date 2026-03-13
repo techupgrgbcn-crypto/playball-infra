@@ -12,7 +12,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: git@github.com:my-organization/303-myproject-k8s-helm.git
+    repoURL: git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git
     targetRevision: argocd-sync/dev
     path: dev/root
   destination:
