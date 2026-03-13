@@ -1,0 +1,67 @@
+#############################################
+# ArgoCD Helm Values for Staging
+#############################################
+
+global:
+  domain: argocd.staging.playball.one
+
+server:
+  # Istio와 함께 사용시 TLS termination은 Istio에서 처리
+  extraArgs:
+    - --insecure
+
+  ingress:
+    enabled: false  # Istio Gateway 사용
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+notifications:
+  enabled: false
+
+dex:
+  enabled: false
+
+configs:
+  params:
+    # Application 상태 동기화 간격
+    timeout.reconciliation: 180s
+
+  repositories:
+    # Helm 차트 저장소
+    goormgb-k8s-helm:
+      url: git@github.com:goorm-gongbang/303-goormgb-k8s-helm.git
+      name: goormgb-k8s-helm
+      type: git

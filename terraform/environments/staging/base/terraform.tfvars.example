@@ -1,0 +1,27 @@
+#############################################
+# CloudFront Origins - NLB DNS
+#############################################
+#
+# EKS에서 Istio IngressGateway NLB DNS 확인:
+#   kubectl get svc -n istio-system istio-ingressgateway \
+#     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+#
+# computeB (테스트 계정) 사용시:
+#   해당 계정의 EKS에서 NLB DNS 확인 후 입력
+#
+# computeA (메인 계정)로 전환시:
+#   메인 계정 EKS의 NLB DNS로 변경
+#############################################
+
+# API용 NLB (Istio IngressGateway)
+api_nlb_domain = "k8s-istiosys-istioing-xxxx.elb.ap-northeast-2.amazonaws.com"
+
+# Monitoring용 NLB (Grafana, ArgoCD, Kiali)
+monitoring_nlb_domain = "k8s-istiosys-istioing-xxxx.elb.ap-northeast-2.amazonaws.com"
+
+#############################################
+# Cross-Account ECR Access
+#############################################
+
+# 테스트 계정에서 ECR 이미지 Pull 허용
+ecr_allowed_account_ids = ["987654321098"]

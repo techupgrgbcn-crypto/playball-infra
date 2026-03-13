@@ -1,0 +1,52 @@
+#############################################
+# Account & Owner Settings (필수)
+#############################################
+
+# 테스트 계정 (계정 B) AWS CLI 프로필
+aws_profile = "ktcloud-test"  # aws configure --profile ktcloud-test
+
+# 메인 계정 (계정 A) AWS CLI 프로필
+main_account_profile = "default"
+
+# 리소스 소유자 태그 (필수)
+owner_name = "ktcloud_team4_260204"
+
+# 메인 계정 ID (ECR, Route53 소유)
+main_account_id = "YOUR_MAIN_ACCOUNT_ID"
+
+# ECR Registry URL (메인 계정)
+ecr_registry_url = "YOUR_MAIN_ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com"
+
+#############################################
+# Network Access
+#############################################
+
+# Bastion SSH 허용 IP (팀원 IP 추가)
+bastion_allowed_cidrs = [
+  "YOUR_IP/32"
+]
+
+# EKS API 허용 IP
+eks_public_access_cidrs = [
+  "YOUR_IP/32"
+]
+
+# SSH 키페어 (EC2에 등록된 키페어 이름, SSM만 쓸 경우 빈 문자열)
+bastion_key_name = ""
+
+#############################################
+# Database Credentials
+#############################################
+
+db_username = "goormgb_app"
+db_password = "CHANGE_ME_STRONG_PASSWORD"
+
+#############################################
+# Route53 (ExternalDNS 미사용시)
+#############################################
+
+# Route53 Zone ID (staging.playball.one) - 메인 계정
+# staging_zone_id = "Z1234567890ABC"
+
+# Terraform으로 Route53 레코드 관리 (ExternalDNS 미사용시 true)
+# manage_route53_records = true

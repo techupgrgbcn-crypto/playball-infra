@@ -1,0 +1,17 @@
+domain_name = "playball.one"
+
+# Step 1: false로 시작 (Route53만 생성)
+# Step 2: Porkbun NS 설정 후 true로 변경 (ACM 생성)
+enable_acm = false
+
+# dns/staging terraform apply 후 output에서 복사
+# cd staging && terraform output zone_name_servers
+staging_zone_name_servers = [
+  "ns-xxxx.xxxxx-xx.org",
+  "ns-xxxx.xxxxx-xx.co.uk",
+  "ns-xxxx.xxxxx-xx.com",
+  "ns-xxxx.xxxxx-xx.net",
+]
+
+# prod 환경 생성 후 추가
+prod_zone_name_servers = []

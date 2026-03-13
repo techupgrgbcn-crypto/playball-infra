@@ -1,0 +1,71 @@
+# AWS 설정
+aws_region  = "ap-northeast-2"
+aws_profile = "wonny"
+
+# ECR 서비스 목록
+ecr_services = [
+  "api-gateway",
+  "auth-guard",
+  "order-core",
+  "queue",
+  "recommendation",
+  "seat"
+]
+
+# ArgoCD 설정
+argocd_github_ssh_key            = "-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----"
+argocd_discord_webhook_url       = "https://discord.com/api/webhooks/xxx/yyy"  # 앱 배포 알림
+argocd_discord_webhook_infra_url = "https://discord.com/api/webhooks/xxx/yyy"  # 인프라 배포 알림
+
+# Discord Alerts (Prometheus/Alertmanager)
+discord_alerts_critical_url = "https://discord.com/api/webhooks/xxx/yyy"
+discord_alerts_warning_url  = "https://discord.com/api/webhooks/xxx/yyy"
+discord_alerts_info_url     = "https://discord.com/api/webhooks/xxx/yyy"
+
+# Google OAuth (ArgoCD, Grafana)
+google_oauth_client_id     = "xxx.apps.googleusercontent.com"
+google_oauth_client_secret = "GOCSPX-xxx"
+
+# Grafana
+grafana_admin_password = "your-grafana-password"
+
+# Database
+db_host     = "postgresql.data.svc.cluster.local"
+db_port     = "5432"
+db_name     = "goormgb"
+db_username = "postgres"
+db_password = "your-db-password"
+
+# Redis (Backend)
+redis_cache_host = "redis-cache.data.svc.cluster.local"
+redis_queue_host = "redis-queue.data.svc.cluster.local"
+redis_password   = "your-redis-password"
+
+# Redis (AI Service)
+ai_redis_host = "redis-ai.data.svc.cluster.local"
+ai_redis_port = "6379"
+
+# JWT
+jwt_secret_key = "your-jwt-secret-key"
+
+# Kakao OAuth
+kakao_client_id     = "xxx"
+kakao_client_secret = "xxx"
+
+# Cloudflare (DDNS)
+cloudflare_api_token = "xxx"
+cloudflare_zone_id   = "xxx"
+
+# S3 Backup
+s3_backup_access_key = "AKIA..."
+s3_backup_secret_key = "xxx"
+
+# Swagger OAuth (Google OAuth for API docs)
+swagger_oauth_client_id     = "xxx.apps.googleusercontent.com"
+swagger_oauth_client_secret = "GOCSPX-xxx"
+swagger_oauth_cookie_secret = "랜덤32바이트base64"  # python3 -c 'import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())'
+swagger_authenticated_emails = [
+  "user@example.com",
+  "user@example.com",
+  "user@example.com"
+]

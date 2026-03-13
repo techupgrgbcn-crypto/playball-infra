@@ -1,0 +1,5 @@
+# AWS CLI 프로필 (테스트 계정)
+aws_profile = "ktcloud-test"
+
+# Owner 태그
+owner_name = "ktcloud_team4_260204"
